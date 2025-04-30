@@ -20,6 +20,21 @@ jobs:
       - name: Install Dependencies 👨🏻‍💻
         run: npm install # Or use 'yarn install' if you use Yarn
 
+      - name: Setup SSH Agent for Docs Clone
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.ACTIONS_DEPLOY_KEY }} # Ensure this secret has read access to the docs repo
+
+      - name: Clone Docs Repository 📚
+        run: |
+          # Ensure the parent directory exists if needed, though git clone usually creates the target dir
+          # mkdir -p public
+          echo "Cloning docs repository..."
+          # Use SSH to clone the repository
+          git clone --depth 1 git@github.com:cooku-life/docs.git public/docs
+          echo "Docs repository cloned successfully."
+          ls -la public/docs # Optional: list contents for verification
+
       - name: Build 🏗️
         run: npm run build # Executes your build script
 
@@ -29,7 +44,7 @@ jobs:
           # Use a Personal Access Token (PAT)
           personal_token: ${{ secrets.DEPLOY_TOKEN }}
           # Alternatively, use an SSH Deploy Key (more secure, see explanation below)
-          # deploy_key: ${{ secrets.ACTIONS_DEPLOY_KEY }}
+          deploy_key: ${{ secrets.ACTIONS_DEPLOY_KEY }}
 
           # Target repository and branch
           external_repository: cooku-life/cooku-life.github.io
