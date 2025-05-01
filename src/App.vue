@@ -104,7 +104,7 @@ body {
   overflow-y: auto;
   padding: 20px;
   box-sizing: border-box;
-  margin-left: 250px;
+  margin-left: 250px; /* 导航栏宽度 */
   text-align: left;
 }
 
@@ -140,10 +140,6 @@ body {
     z-index: auto;
   }
 
-  .main-content {
-    padding: 15px;
-    margin-left: 0;
-  }
 
   .footer-container {
     margin-left: 0;

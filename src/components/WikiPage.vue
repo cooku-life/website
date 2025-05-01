@@ -82,15 +82,24 @@ watch(() => route.path, (newPath) => {
 <style scoped>
 .wiki-page-container {
   display: flex;
-  gap: 20px; /* Space between content and TOC */
+  gap: 20px;
+  position: relative;
+  width: 100%; /* 确保宽度铺满 */
+  max-width: 100%; /* 限制最大宽度 */
+  box-sizing: border-box; /* 包含padding和border在width内 */
+  margin: 0; /* 移除可能的外边距 */
+  padding: 0; /* 移除可能的内边距 */
 }
 
 .wiki-content {
-  flex: 1; /* Content takes available space */
-  min-width: 0; /* Prevent content from overflowing */
+  flex: 1;
+  min-width: 0;
   padding: 20px;
   line-height: 1.6;
-  text-align: left; /* Explicitly set text alignment */
+  text-align: left;
+  word-wrap: break-word; /* 允许长单词或数字换行 */
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 /* Align direct children of wiki-content to the left */
@@ -258,136 +267,5 @@ watch(() => route.path, (newPath) => {
 
 }
 
-/* Add basic styling for rendered markdown */
-.wiki-page :deep(h1),
-.wiki-page :deep(h2),
-.wiki-page :deep(h3),
-.wiki-page :deep(h4),
-.wiki-page :deep(h5),
-.wiki-page :deep(h6) {
-  margin-top: 1.5em;
-  margin-bottom: 0.8em;
-  font-weight: 600;
-  line-height: 1.3;
-}
 
-.wiki-page :deep(h1) {
-  font-size: 2.2em;
-  border-bottom: 1px solid #eee;
-  padding-bottom: 0.3em;
-}
-
-.wiki-page :deep(h2) {
-  font-size: 1.8em;
-  border-bottom: 1px solid #eee;
-  padding-bottom: 0.3em;
-}
-
-.wiki-page :deep(h3) {
-  font-size: 1.5em;
-}
-
-.wiki-page :deep(p) {
-  margin-bottom: 1em;
-}
-
-.wiki-page :deep(ul),
-.wiki-page :deep(ol) {
-  margin-bottom: 1em;
-  padding-left: 2em;
-}
-
-.wiki-page :deep(li) {
-  margin-bottom: 0.4em;
-}
-
-.wiki-page :deep(code) {
-  background-color: #f0f0f0;
-  padding: 0.2em 0.4em;
-  border-radius: 3px;
-  font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
-  font-size: 0.9em;
-}
-
-.wiki-page :deep(pre) {
-  background-color: #f8f8f8;
-  border: 1px solid #ddd;
-  padding: 1em;
-  border-radius: 4px;
-  overflow-x: auto;
-  margin-bottom: 1em;
-}
-
-.wiki-page :deep(pre code) {
-  background-color: transparent;
-  padding: 0;
-  border-radius: 0;
-  font-size: 0.9em;
-}
-
-.wiki-page :deep(blockquote) {
-  border-left: 4px solid #ccc;
-  padding-left: 1em;
-  margin-left: 0;
-  margin-right: 0;
-  color: #666;
-  margin-bottom: 1em;
-}
-
-.wiki-page :deep(table) {
-  border-collapse: collapse;
-  width: 100%;
-  margin-bottom: 1em;
-}
-
-.wiki-page :deep(th),
-.wiki-page :deep(td) {
-  border: 1px solid #ddd;
-  padding: 8px;
-  text-align: left;
-}
-
-.wiki-page :deep(th) {
-  background-color: #f2f2f2;
-}
-
-.wiki-page :deep(img) {
-  max-width: 100%;
-  height: auto;
-  display: block;
-  margin: 1em 0;
-  font-weight: 600;
-}
-
-.wiki-page :deep(p) {
-  margin-bottom: 1em;
-}
-
-.wiki-page :deep(code) {
-  background-color: #f0f0f0;
-  padding: 0.2em 0.4em;
-  border-radius: 3px;
-  font-family: monospace;
-}
-
-.wiki-page :deep(pre) {
-  background-color: #f0f0f0;
-  padding: 1em;
-  border-radius: 5px;
-  overflow-x: auto;
-}
-
-.wiki-page :deep(pre code) {
-  background-color: transparent;
-  padding: 0;
-}
-
-.wiki-page :deep(a) {
-  color: #42b983;
-  text-decoration: none;
-}
-
-.wiki-page :deep(a:hover) {
-  text-decoration: underline;
-}
 </style>
