@@ -204,7 +204,7 @@ body.dark-mode-body {
 
 /* Adjust link colors for dark mode */
 #app.dark-mode a {
-  color: #bb86fc;
+  color: #f9f9f9;
 }
 
 #app.dark-mode a:hover {

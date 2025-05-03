@@ -148,7 +148,7 @@ watch(() => route.path, (newPath) => {
 }
 
 #app.dark-mode .toc-container a {
-  color: #bb86fc; /* Example dark mode link color */
+  color: #ffffff; /* Example dark mode link color */
 }
 #app.dark-mode .toc-container a:hover {
     color: #9e6cdc;
