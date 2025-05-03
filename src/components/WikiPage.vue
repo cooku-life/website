@@ -39,7 +39,22 @@ const loadContent = async (path) => {
     const lookupPath = path.endsWith('/') && path.length > 1 ? path.slice(0, -1) : (path === '' ? '/' : path);
 
     // Use a default path if the lookup path is empty or just '/' which corresponds to index.md
-    const finalLookupPath = lookupPath || '/';
+    let finalLookupPath = lookupPath || '/';
+
+    // --- DECODE THE PATH ---
+    // Decode the URL-encoded path obtained from route.path to match the keys in `pages` object
+    finalLookupPath = decodeURIComponent(finalLookupPath);
+    // --- END DECODE ---
+
+
+    // --- DEBUGGING LOGS ---
+    console.log("Attempting to load content for route path:", path);
+    console.log("Using (decoded) lookup key:", finalLookupPath); // Log the decoded key
+    // Log the keys available in the generated pages object for comparison
+    // console.log("Available keys in pages:", Object.keys(pages)); 
+    // You might want to log the whole pages object too, if keys are complex
+    // console.log("Complete pages object:", pages); 
+    // --- END DEBUGGING LOGS ---
 
     if (pages[finalLookupPath]) {
       const { html, toc } = pages[finalLookupPath];
@@ -51,7 +66,7 @@ const loadContent = async (path) => {
       // Handle page not found in generated content
       renderedMarkdown.value = '<h1>页面未找到</h1><p>抱歉，无法在预生成的内容中找到您请求的页面。</p>';
       tocItems.value = [];
-      console.error(`Content not found for path: ${finalLookupPath}`)
+      console.error(`Content not found for path: ${finalLookupPath}`) // Log the decoded path in case of error now
       error.value = '页面未找到'; // Set error message
     }
   } catch (err) {

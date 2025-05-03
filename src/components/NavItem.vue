@@ -71,7 +71,7 @@ li {
 
 .nav-link:hover,
 .router-link-active {
-  color: #42b983; /* Vue green */
+  color: #ec4319; /* Vue green */
   font-weight: 600;
 }
 
