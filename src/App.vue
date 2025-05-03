@@ -1,15 +1,18 @@
 <template>
-  <div id="app" :class="{ 'dark-mode': isDarkMode }">
+  <div id="app" :class="{ 'dark-mode': isDarkMode, 'mobile-nav-open': isMobileNavOpen && isMobileView }">
     <TopNavBar 
       :logo-src="config.logoSrc" 
       :site-title="config.siteTitle" 
       :nav-links="config.navLinks"
       :is-dark-mode="isDarkMode" 
       @toggle-dark-mode="toggleDarkMode"
+      @toggle-menu="toggleMobileNav"  
+      :is-mobile-view="isMobileView" 
       class="top-nav-container" 
     />
+    <div v-if="isMobileNavOpen && isMobileView" class="mobile-nav-overlay" @click="closeMobileNav"></div>
     <div class="page-body"> 
-      <NavigationMenu class="nav-container" />
+      <NavigationMenu class="nav-container" :class="{ 'is-mobile-open': isMobileNavOpen && isMobileView }" />
       <div class="content-and-footer"> 
         <main class="main-content">
           <router-view />
@@ -21,7 +24,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import NavigationMenu from './components/NavigationMenu.vue'
 import Footer from './components/Footer.vue'
 import TopNavBar from './components/TopNavBar.vue'
@@ -35,6 +38,8 @@ const config = ref({
 })
 const route = useRoute()
 const isDarkMode = ref(false)
+const isMobileNavOpen = ref(false)
+const isMobileView = ref(window.innerWidth <= 768)
 
 const loadConfig = async () => {
   try {
@@ -65,10 +70,28 @@ const loadDarkModePreference = () => {
   isDarkMode.value = preference === 'true'
 }
 
+const toggleMobileNav = () => {
+  isMobileNavOpen.value = !isMobileNavOpen.value
+}
+
+const closeMobileNav = () => {
+  isMobileNavOpen.value = false
+}
+
+const handleResize = () => {
+  const mobile = window.innerWidth <= 768
+  isMobileView.value = mobile
+  if (!mobile) {
+    isMobileNavOpen.value = false
+  }
+}
+
 onMounted(() => {
   loadConfig()
   updateTitle()
   loadDarkModePreference()
+  window.addEventListener('resize', handleResize)
+  handleResize()
 })
 
 watch(() => route.path, () => {
@@ -86,6 +109,11 @@ watch(isDarkMode, (newValue) => {
     document.body.classList.remove('dark-mode-body')
   }
 }, { immediate: true })
+
+import { onUnmounted } from 'vue'
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
+})
 </script>
 
 <style>
@@ -234,37 +262,39 @@ body.dark-mode-body {
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
-  #app {
-  }
-
   .page-body {
-    padding-top: 0;
+    padding-top: 60px;
     display: block;
+    overflow-x: hidden;
   }
 
   .top-nav-container {
-    position: static;
-    height: auto;
+    position: fixed;
+    height: 60px;
   }
 
   .nav-container {
-    position: static;
-    top: auto;
-    left: auto;
-    height: auto;
+    position: fixed;
+    top: 60px;
+    left: 0;
+    max-height: calc(100vh - 60px);
     width: 100%;
-    border-right: none;
+    background-color: #f8f9fa;
     border-bottom: 1px solid #e9ecef;
-    overflow-y: visible;
-    z-index: auto;
-    #app.dark-mode & {
-      border-bottom: 1px solid #3a3a3a;
-    }
+    transform: translateY(-100%);
+    transition: transform 0.3s ease-in-out;
+    z-index: 1000;
+    overflow-y: auto;
+  }
+
+  .nav-container.is-mobile-open {
+    transform: translateY(0);
   }
 
   .content-and-footer {
     margin-left: 0;
-    min-height: auto;
+    min-height: calc(100vh - 60px);
+    transition: transform 0.3s ease-in-out;
   }
 
   .main-content {
@@ -275,7 +305,61 @@ body.dark-mode-body {
   }
 
   #app.dark-mode .nav-container {
+    background-color: #2a2a2a;
     border-bottom: 1px solid #3a3a3a;
+  }
+
+  #app.dark-mode .mobile-nav-overlay {
+    background-color: rgba(0, 0, 0, 0.7);
+  }
+}
+
+/* Add styles for mobile nav overlay */
+.mobile-nav-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  display: none;
+}
+
+#app.mobile-nav-open .mobile-nav-overlay {
+  display: block;
+}
+
+/* Reset overrides from previous mobile styles that are now handled differently */
+@media (min-width: 769px) {
+  .page-body {
+    padding-top: 60px;
+    display: flex;
+  }
+  .top-nav-container {
+    position: fixed;
+  }
+  .nav-container {
+    position: fixed;
+    top: 60px;
+    left: 0;
+    height: calc(100vh - 60px);
+    max-height: none;
+    width: 250px;
+    transform: none;
+    transition: none;
+    border-right: 1px solid #e9ecef;
+    border-bottom: none;
+  }
+  #app.dark-mode .nav-container {
+    border-right: 1px solid #3a3a3a;
+    border-bottom: none;
+  }
+  .content-and-footer {
+    margin-left: 250px;
+  }
+  .mobile-nav-overlay {
+    display: none !important;
   }
 }
 </style>
