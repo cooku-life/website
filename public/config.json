@@ -1,6 +1,6 @@
 {
   "siteTitle": "Cook Your Life",
-  "logoSrc": "/logo.svg",
+  "logoSrc": "/logo.png",
   "navLinks": [
     { "text": "Github", "url": "/" },
     { "text": "加入社群", "url": "/about" },
