@@ -1,94 +1,103 @@
 <template>
   <div class="wiki-page-container">
-    <div class="wiki-content" ref="contentRef" v-html="renderedMarkdown"></div>
-    <aside class="toc-container" v-if="tocItems.length > 0">
-      <h4>目录</h4>
-      <ul>
-        <li v-for="item in tocItems" :key="item.id" :class="`toc-level-${item.level}`">
-          <a :href="`#${item.id}`">{{ item.text }}</a>
-        </li>
-      </ul>
-    </aside>
+    <div v-if="loading" class="loading-placeholder">正在加载内容...</div>
+    <div v-else-if="error" class="error-message">{{ error }}</div>
+    <template v-else>
+      <div class="wiki-content" ref="contentRef" v-html="renderedMarkdown"></div>
+      <aside class="toc-container" v-if="tocItems.length > 0">
+        <h4>目录</h4>
+        <ul>
+          <li v-for="item in tocItems" :key="item.id" :class="`toc-level-${item.level}`">
+            <a :href="`#${item.id}`">{{ item.text }}</a>
+          </li>
+        </ul>
+      </aside>
+    </template>
   </div>
 </template>
 
 <script setup>
 import { ref, watch, onMounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
-import { Marked } from 'marked'
-import { gfmHeadingId, getHeadingList, resetHeadings } from 'marked-gfm-heading-id'
+// Removed Marked imports as parsing is done at build time
+import { pages } from '@/generated/content.js' // Import pre-generated content
 
 const route = useRoute()
 const renderedMarkdown = ref('')
 const tocItems = ref([])
-const contentRef = ref(null) // Ref for the content container
+const contentRef = ref(null)
+const loading = ref(true)
+const error = ref(null)
 
-const fetchAndRenderMarkdown = async (path) => {
-  // Default to index.md if path is empty or root
-  const filePath = path === '/' || !path ? '/docs/index.md' : `/docs${path}.md`
+const loadContent = async (path) => {
+  loading.value = true
+  error.value = null
+  await nextTick() // Ensure DOM updates before trying to load
+
   try {
-    const response = await fetch(filePath)
-    if (response.ok) {
-      const markdown = await response.text()
-      
-      // Create a new Marked instance for this parse operation
-      const localMarked = new Marked();
-      
-      // Reset heading list before parsing with this instance
-      resetHeadings(); 
+    // Normalize path: remove trailing slash for lookup, handle root path '/'
+    const lookupPath = path.endsWith('/') && path.length > 1 ? path.slice(0, -1) : (path === '' ? '/' : path);
 
-      // Configure the instance with the extension and the hook
-      localMarked.use(gfmHeadingId(), {
-        hooks: {
-          postprocess(html) {
-            // Use getHeadingList AFTER marked.parse is complete within the hook
-            const headings = getHeadingList();
-            // Update TOC ref from within the hook or after the promise resolves
-            nextTick(() => {
-                 tocItems.value = headings;
-            });
-            return html; // Return the processed HTML
-          }
-        }
-      });
+    // Use a default path if the lookup path is empty or just '/' which corresponds to index.md
+    const finalLookupPath = lookupPath || '/';
 
-      // Pass the markdown to the instance's parse method
-      renderedMarkdown.value = localMarked.parse(markdown);
-      
+    if (pages[finalLookupPath]) {
+      const { html, toc } = pages[finalLookupPath];
+      renderedMarkdown.value = html;
+      // Ensure TOC update happens after HTML is potentially rendered
+      await nextTick();
+      tocItems.value = toc || [];
     } else {
-      // Handle 404 or other errors
-      renderedMarkdown.value = new Marked().parse('# 页面未找到\\n\\n抱歉，无法找到您请求的页面。'); 
-      tocItems.value = []; // Clear TOC on error
-      console.error(`Failed to fetch ${filePath}: ${response.statusText}`)
+      // Handle page not found in generated content
+      renderedMarkdown.value = '<h1>页面未找到</h1><p>抱歉，无法在预生成的内容中找到您请求的页面。</p>';
+      tocItems.value = [];
+      console.error(`Content not found for path: ${finalLookupPath}`)
+      error.value = '页面未找到'; // Set error message
     }
-  } catch (error) {
-    renderedMarkdown.value = new Marked().parse('# 加载错误\\n\\n加载页面时发生错误。');
-    tocItems.value = []; // Clear TOC on error
-    console.error(`Error fetching ${filePath}:`, error)
+  } catch (err) {
+    renderedMarkdown.value = '<h1>加载错误</h1><p>加载预生成内容时发生错误。</p>';
+    tocItems.value = [];
+    console.error(`Error loading content for path ${path}:`, err)
+    error.value = '加载内容时出错'; // Set error message
+  } finally {
+    loading.value = false;
   }
 }
 
 // Fetch content when the component mounts
 onMounted(() => {
-  fetchAndRenderMarkdown(route.path)
+  loadContent(route.path)
 })
 
 // Watch for route changes and fetch new content
 watch(() => route.path, (newPath) => {
-  fetchAndRenderMarkdown(newPath)
+  loadContent(newPath)
 })
 </script>
 
 <style scoped>
+/* Add styles for loading and error states */
+.loading-placeholder, .error-message {
+  padding: 40px;
+  text-align: center;
+  font-size: 1.2em;
+  color: #666;
+}
+
+.error-message {
+  color: #dc3545; /* Bootstrap danger color */
+}
+
+/* Keep existing styles */
 .wiki-page-container {
   display: flex;
   gap: 20px;
   position: relative;
-  width: 100%; /* 确保宽度铺满 */
-  max-width: 100%; /* 限制最大宽度 */
-  box-sizing: border-box; /* 包含padding和border在width内 */
-  margin: 0; /* 移除可能的外边距 */
-  padding: 0; /* 移除可能的内边距 */
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
 .wiki-content {
@@ -97,27 +106,39 @@ watch(() => route.path, (newPath) => {
   padding: 20px;
   line-height: 1.6;
   text-align: left;
-  word-wrap: break-word; /* 允许长单词或数字换行 */
+  word-wrap: break-word;
   overflow-wrap: break-word;
   word-break: break-word;
 }
 
-/* Align direct children of wiki-content to the left */
 .wiki-content > * {
   text-align: left;
 }
 
 .toc-container {
-  width: 200px; /* Fixed width for TOC */
-  flex-shrink: 0; /* Prevent TOC from shrinking */
+  width: 200px;
+  flex-shrink: 0;
   padding-top: 20px;
-  position: sticky; /* Make TOC sticky */
-  top: 20px; /* Adjust top position as needed */
-  height: calc(100vh - 40px); /* Adjust height based on viewport and padding */
-  overflow-y: auto; /* Allow scrolling for long TOC */
+  position: sticky;
+  top: 80px; /* Increased top value to account for fixed TopNavBar */
+  max-height: calc(100vh - 100px); /* Adjust max-height */
+  overflow-y: auto;
   border-left: 1px solid #e9ecef;
   padding-left: 15px;
 }
+
+/* Dark mode adjustments for TOC if needed */
+#app.dark-mode .toc-container {
+  border-left: 1px solid #3a3a3a;
+}
+
+#app.dark-mode .toc-container a {
+  color: #bb86fc; /* Example dark mode link color */
+}
+#app.dark-mode .toc-container a:hover {
+    color: #9e6cdc;
+}
+
 
 .toc-container h4 {
   margin-top: 0;
@@ -137,26 +158,21 @@ watch(() => route.path, (newPath) => {
 .toc-container a {
   text-decoration: none;
   color: #337ab7;
+  font-size: 0.9em; /* Slightly smaller TOC font */
 }
 
 .toc-container a:hover {
   text-decoration: underline;
 }
 
-/* Indentation for different heading levels */
-.toc-level-2 {
-  padding-left: 15px;
-}
+.toc-level-2 { padding-left: 15px; }
+.toc-level-3 { padding-left: 30px; }
+.toc-level-4 { padding-left: 45px; }
+.toc-level-5 { padding-left: 60px; } /* Add more levels if needed */
+.toc-level-6 { padding-left: 75px; }
 
-.toc-level-3 {
-  padding-left: 30px;
-}
 
-.toc-level-4 {
-  padding-left: 45px;
-}
-
-/* Add basic styling for rendered markdown within wiki-content */
+/* Markdown content styles (using :deep) */
 .wiki-content :deep(h1),
 .wiki-content :deep(h2),
 .wiki-content :deep(h3),
@@ -166,106 +182,55 @@ watch(() => route.path, (newPath) => {
   margin-top: 1.5em;
   margin-bottom: 0.5em;
   font-weight: 600;
+  scroll-margin-top: 80px; /* Add top margin for scroll target */
 }
+.wiki-content :deep(h1) { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+.wiki-content :deep(h2) { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+.wiki-content :deep(h3) { font-size: 1.25em; }
+.wiki-content :deep(p) { margin-bottom: 1em; }
+.wiki-content :deep(ul), .wiki-content :deep(ol) { margin-bottom: 1em; padding-left: 2em; }
+.wiki-content :deep(li) { margin-bottom: 0.5em; }
+.wiki-content :deep(code) { background-color: #f8f8f8; padding: 0.2em 0.4em; border-radius: 3px; font-family: 'Courier New', Courier, monospace; font-size: 0.9em;}
+.wiki-content :deep(pre) { background-color: #f8f8f8; padding: 1em; border-radius: 5px; overflow-x: auto; margin-bottom: 1em;}
+.wiki-content :deep(pre code) { padding: 0; background-color: transparent; border-radius: 0; font-size: 1em; }
+.wiki-content :deep(blockquote) { border-left: 4px solid #eee; padding-left: 1em; margin-left: 0; color: #666; margin-bottom: 1em;}
+.wiki-content :deep(table) { border-collapse: collapse; width: 100%; margin-bottom: 1em; display: block; overflow-x: auto; /* Ensure table scrolls horizontally if needed */ }
+.wiki-content :deep(th), .wiki-content :deep(td) { border: 1px solid #ddd; padding: 8px; text-align: left; }
+.wiki-content :deep(th) { background-color: #f2f2f2; }
+.wiki-content :deep(img) { max-width: 100%; height: auto; } /* Responsive images */
+.wiki-content :deep(hr) { border: none; border-top: 1px solid #eee; margin: 1em 0; } /* Horizontal rule style */
 
-.wiki-content :deep(h1) {
-  font-size: 2em;
-  border-bottom: 1px solid #eee;
-  padding-bottom: 0.3em;
-}
+/* Dark mode Markdown styles */
+#app.dark-mode .wiki-content :deep(code) { background-color: #3a3a3a; color: #e0e0e0; }
+#app.dark-mode .wiki-content :deep(pre) { background-color: #2a2a2a; }
+#app.dark-mode .wiki-content :deep(blockquote) { border-left-color: #444; color: #aaa; }
+#app.dark-mode .wiki-content :deep(th), #app.dark-mode .wiki-content :deep(td) { border-color: #444; }
+#app.dark-mode .wiki-content :deep(th) { background-color: #3a3a3a; }
+#app.dark-mode .wiki-content :deep(h1), #app.dark-mode .wiki-content :deep(h2) { border-bottom-color: #444; }
+#app.dark-mode .wiki-content :deep(hr) { border-top-color: #444; }
 
-.wiki-content :deep(h2) {
-  font-size: 1.5em;
-  border-bottom: 1px solid #eee;
-  padding-bottom: 0.3em;
-}
-
-.wiki-content :deep(h3) {
-  font-size: 1.25em;
-}
-
-.wiki-content :deep(p) {
-  margin-bottom: 1em;
-  text-align: left; /* Align paragraphs left (inherits from .wiki-content) */
-}
-
-.wiki-content :deep(ul),
-.wiki-content :deep(ol) {
-  margin-bottom: 1em;
-  padding-left: 2em;
-}
-
-.wiki-content :deep(li) {
-  margin-bottom: 0.5em;
-}
-
-.wiki-content :deep(code) {
-  background-color: #f8f8f8;
-  padding: 0.2em 0.4em;
-  border-radius: 3px;
-  font-family: 'Courier New', Courier, monospace;
-}
-
-.wiki-content :deep(pre) {
-  background-color: #f8f8f8;
-  padding: 1em;
-  border-radius: 5px;
-  overflow-x: auto;
-}
-
-.wiki-content :deep(pre code) {
-  padding: 0;
-  background-color: transparent;
-  border-radius: 0;
-}
-
-.wiki-content :deep(blockquote) {
-  border-left: 4px solid #eee;
-  padding-left: 1em;
-  margin-left: 0;
-  color: #666;
-}
-
-.wiki-content :deep(table) {
-  border-collapse: collapse;
-  width: 100%;
-  margin-bottom: 1em;
-}
-
-.wiki-content :deep(th),
-.wiki-content :deep(td) {
-  border: 1px solid #ddd;
-  padding: 8px;
-  text-align: left;
-}
-
-.wiki-content :deep(th) {
-  background-color: #f2f2f2;
-}
 
 /* Responsive adjustments */
-@media (max-width: 992px) { /* Adjust breakpoint as needed */
+@media (max-width: 992px) {
   .wiki-page-container {
     flex-direction: column;
   }
-
   .toc-container {
     width: 100%;
     position: static;
     height: auto;
-    max-height: 300px; /* Limit height on smaller screens */
+    max-height: 300px;
     border-left: none;
     border-top: 1px solid #e9ecef;
     padding-left: 0;
     margin-top: 20px;
     padding-top: 15px;
+     #app.dark-mode & {
+       border-top: 1px solid #3a3a3a;
+    }
   }
-
   .wiki-content {
-     padding: 15px; /* Adjust padding for smaller screens */
+     padding: 15px;
   }
-
 }
-
-
 </style>

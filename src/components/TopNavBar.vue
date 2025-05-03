@@ -9,12 +9,15 @@
         {{ link.text }}
       </router-link>
       <!-- Add more static links or components here if needed -->
+      <button @click="emitToggleDarkMode" class="toggle-button">
+        {{ isDarkMode ? '切换日间模式' : '切换夜间模式' }}
+      </button>
     </nav>
   </header>
 </template>
 
 <script setup>
-import { defineProps } from 'vue';
+import { defineProps, defineEmits } from 'vue';
 
 defineProps({
   logoSrc: {
@@ -28,8 +31,18 @@ defineProps({
   navLinks: {
     type: Array,
     default: () => []
+  },
+  isDarkMode: {
+    type: Boolean,
+    required: true
   }
 });
+
+const emit = defineEmits(['toggleDarkMode']);
+
+const emitToggleDarkMode = () => {
+  emit('toggleDarkMode');
+};
 </script>
 
 <style scoped>
@@ -69,6 +82,7 @@ defineProps({
 .nav-links {
   display: flex;
   gap: 20px; /* Space between links */
+  align-items: center; /* Align button vertically */
 }
 
 .nav-link {
@@ -82,5 +96,19 @@ defineProps({
 .nav-link.router-link-exact-active { /* Style for active link */
   color: #0056b3;
   border-bottom: 2px solid #0056b3;
+}
+
+.toggle-button {
+  padding: 8px 12px;
+  background-color: #e9ecef;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9em;
+  transition: background-color 0.2s ease;
+}
+
+.toggle-button:hover {
+  background-color: #d6dce1;
 }
 </style> 
