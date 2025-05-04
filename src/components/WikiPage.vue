@@ -3,6 +3,17 @@
     <div v-if="loading" class="loading-placeholder">正在加载内容...</div>
     <div v-else-if="error" class="error-message">{{ error }}</div>
     <template v-else>
+      <!-- Contributor Info - Now shows a list -->
+      <div v-if="contributorsList.length > 0" class="contributor-info">
+        <span class="contributor-label">贡献者列表:</span>
+        <span v-for="(contributor, index) in contributorsList" :key="contributor" class="contributor-name">
+          <!-- Add link if needed, for now just text -->
+          {{ contributor }}
+          <!-- Add comma separation -->
+          <span v-if="index < contributorsList.length - 1">, </span>
+        </span>
+      </div>
+
       <div class="wiki-content" ref="contentRef" v-html="renderedMarkdown"></div>
 
       <!-- Mobile FAB for TOC -->
@@ -126,6 +137,13 @@ const activeTocId = ref(null) // Added for active TOC item
 const tocListRef = ref(null) // Ref for the TOC ul element
 const tocHighlighterRef = ref(null) // Ref for the highlighter div
 let observer = null // IntersectionObserver instance
+
+// --- Contributor Info State ---
+const lastAuthorName = ref(null)
+const lastCommitHash = ref(null)
+const lastCommitTimestamp = ref(null)
+const contributorsList = ref([]) // Added for the list of contributors
+// --- End Contributor Info State ---
 
 // --- Custom Lightbox State ---
 const isLightboxVisible = ref(false)
@@ -603,6 +621,11 @@ const loadContent = async (path) => {
     observer = null;
   }
   activeTocId.value = null; // Reset active ID
+  // Reset contributor info
+  lastAuthorName.value = null;
+  lastCommitHash.value = null;
+  lastCommitTimestamp.value = null;
+  contributorsList.value = []; // Reset contributors list
 
   // Remove previous listener if contentRef exists from a previous load
   if (contentRef.value) {
@@ -637,8 +660,14 @@ const loadContent = async (path) => {
     // console.log("Does key exist?", pages.hasOwnProperty(finalLookupPath)); // Check existence explicitly
 
     if (pages[finalLookupPath]) {
-      const { html, toc } = pages[finalLookupPath];
+      const { html, toc, lastAuthorName: author, lastCommitHash: hash, lastCommitTimestamp: timestamp, contributors } = pages[finalLookupPath];
       renderedMarkdown.value = html;
+      // Set contributor info
+      lastAuthorName.value = author || null;
+      lastCommitHash.value = hash || null;
+      lastCommitTimestamp.value = timestamp || null;
+      contributorsList.value = contributors || []; // Set the list of contributors
+
       // Ensure TOC update happens after HTML is potentially rendered
       await nextTick();
       tocItems.value = toc || [];
@@ -703,6 +732,35 @@ onUnmounted(() => {
 watch(() => route.path, (newPath) => {
   loadContent(newPath)
 })
+
+// --- Computed property for contributor commit URL ---
+const contributorCommitUrl = computed(() => {
+  // Assuming your repo structure on GitHub is 'cooku-life/docs'
+  // Replace with your actual org/repo if different
+  const repoBaseUrl = 'https://github.com/cooku-life/docs/commit/'; 
+  return lastCommitHash.value ? `${repoBaseUrl}${lastCommitHash.value}` : '#';
+});
+
+// --- Computed property for formatted commit date ---
+const lastCommitDate = computed(() => {
+  if (!lastCommitTimestamp.value) return null;
+  try {
+    // Multiply by 1000 because JS Date expects milliseconds
+    const date = new Date(lastCommitTimestamp.value * 1000);
+    // Format the date as YYYY-MM-DD HH:mm
+    return date.toLocaleString('sv-SE', { // Use Swedish locale for YYYY-MM-DD format
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false // Use 24-hour format
+    });
+  } catch (e) {
+    console.error("Error formatting commit date:", e);
+    return '无效日期';
+  }
+});
 </script>
 
 <style scoped>
@@ -730,6 +788,51 @@ watch(() => route.path, (newPath) => {
 .error-message {
   color: #dc3545; /* Bootstrap danger color */
 }
+
+/* Contributor Info Styles */
+.contributor-info {
+  margin-bottom: 20px; /* Space above main content */
+  font-size: 0.9em;
+  color: #6c757d; /* Subdued text color */
+  text-align: left;
+  padding-left: 5px; /* Align with content if needed */
+}
+
+/* Style for the "Contributors:" label */
+.contributor-label {
+  font-weight: 600; /* Make the label slightly bolder */
+  margin-right: 8px;
+}
+
+/* Style for individual contributor names */
+.contributor-name {
+  /* Add specific styles if needed, e.g., background, border-radius */
+  /* For now, just rely on inherited styles */
+}
+
+/* Remove link styles if not using links */
+/*
+.contributor-info a {
+  color: #007bff; 
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.contributor-info a:hover {
+  text-decoration: underline;
+}
+*/
+
+#app.dark-mode .contributor-info {
+  color: #adb5bd; /* Lighter subdued color for dark mode */
+}
+
+/* Remove dark mode link styles if not using links */
+/*
+#app.dark-mode .contributor-info a {
+  color: #80bdff; 
+}
+*/
 
 /* Main Content Area */
 .wiki-content {

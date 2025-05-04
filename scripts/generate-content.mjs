@@ -4,6 +4,7 @@ import path from 'path';
 import { Marked } from 'marked';
 import { gfmHeadingId, getHeadingList, resetHeadings } from 'marked-gfm-heading-id';
 import yaml from 'js-yaml';
+import { execSync } from 'child_process';
 
 const docsDir = path.resolve('docs');
 const outputDir = path.resolve('src/generated');
@@ -52,6 +53,46 @@ const generateToc = (markdown) => {
   return { html, toc };
 };
 
+// --- Function to get Git info (Now gets all unique contributors and last commit info) ---
+const getGitInfo = (filePath) => {
+  let lastCommitInfo = {
+    lastAuthorName: null,
+    lastCommitHash: null,
+    lastCommitTimestamp: null,
+  };
+  let contributors = [];
+
+  try {
+    // 1. Get last commit info (author, hash, timestamp)
+    const lastCommitCommand = `git log -1 --pretty=format:"%an||%H||%ct" -- "${path.relative(docsDir, filePath).replace(/\\/g, '/')}"`;
+    const lastCommitOutput = execSync(lastCommitCommand, { cwd: docsDir }).toString().trim();
+    if (lastCommitOutput) {
+      const [author, hash, timestamp] = lastCommitOutput.split('|||');
+      lastCommitInfo = {
+        lastAuthorName: author || null,
+        lastCommitHash: hash || null,
+        lastCommitTimestamp: timestamp ? parseInt(timestamp, 10) : null,
+      };
+    }
+
+    // 2. Get all unique author names
+    const allAuthorsCommand = `git log --follow --pretty=format:"%an" -- "${path.relative(docsDir, filePath).replace(/\\/g, '/')}"`;
+    const allAuthorsOutput = execSync(allAuthorsCommand, { cwd: docsDir }).toString().trim();
+    if (allAuthorsOutput) {
+      const authorList = allAuthorsOutput.split('\n').filter(name => name); // Split by newline and remove empty lines
+      contributors = [...new Set(authorList)]; // Get unique names
+    }
+
+  } catch (error) {
+    // console.warn(`Could not get Git info for ${path.basename(filePath)}.`);
+  }
+
+  // Return both last commit info and the list of unique contributors
+  return {
+    ...lastCommitInfo,
+    contributors,
+  };
+};
 
 // --- Main Generation Logic ---
 async function generateContent() {
@@ -82,8 +123,18 @@ async function generateContent() {
       // Generate HTML and TOC (always do this for content.js)
       const { html, toc } = generateToc(content.replace(/^---\s*\n([\s\S]*?)\n---\s*\n?/, '')); // Remove frontmatter before generating HTML
 
+      // Get Git Info (includes all contributors now)
+      const { lastAuthorName, lastCommitHash, lastCommitTimestamp, contributors } = getGitInfo(filePath);
+
       // Store page data (always store, even if hidden from menu)
-      pagesData[finalRoutePath] = { html, toc };
+      pagesData[finalRoutePath] = {
+          html,
+          toc,
+          lastAuthorName, // Keep last commit info as well
+          lastCommitHash,
+          lastCommitTimestamp,
+          contributors // Add the list of unique contributors
+      };
 
       // --- START SKIP IF HIDDEN ---
       // Skip adding to menu if hide: true
