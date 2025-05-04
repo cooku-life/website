@@ -9,7 +9,7 @@
     "build": "npm run generate && vite build",
     "postbuild": "echo cooku.life > dist/CNAME",
     "preview": "vite preview",
-    "deploy": "cd dist && rimraf .git && git init && git add -A && git commit -m \"deploy\" && git push -f git@github.com:cooku-life/cooku-life.github.io.git master:main"
+    "deploy": "npm run build &&cd dist && rimraf .git && git init && git add -A && git commit -m \"deploy\" && git push -f git@github.com:cooku-life/cooku-life.github.io.git master:main"
   },
   "dependencies": {
     "highlight.js": "^11.11.1",
