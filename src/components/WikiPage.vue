@@ -7,7 +7,7 @@
       <div class="main-content-wrapper">
         <!-- Contributor Info - Now shows a list -->
         <div v-if="contributorsList.length > 0" class="contributor-info">
-          <span class="contributor-label">贡献者列表:</span>
+          <span class="contributor-label">本文贡献者:</span>
           <span v-for="(contributor, index) in contributorsList" :key="contributor" class="contributor-name">
             <!-- Add link if needed, for now just text -->
             {{ contributor }}
