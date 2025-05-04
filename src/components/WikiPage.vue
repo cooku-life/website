@@ -91,6 +91,19 @@ import { ref, watch, onMounted, nextTick, onUnmounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 // Removed Marked imports as parsing is done at build time
 import { pages } from '@/generated/content.js' // Import pre-generated content
+// 导入highlight.js核心库和样式
+import hljs from 'highlight.js'
+// 导入主题样式 - 选择github主题(亮色)和github-dark主题(暗色)
+import 'highlight.js/styles/github.css' // 亮色主题
+import 'highlight.js/styles/github-dark.css' // 暗色主题 (将通过CSS选择器进行条件加载)
+// 导入常用语言
+import 'highlight.js/lib/languages/javascript'
+import 'highlight.js/lib/languages/typescript'
+import 'highlight.js/lib/languages/python'
+import 'highlight.js/lib/languages/bash'
+import 'highlight.js/lib/languages/css'
+import 'highlight.js/lib/languages/xml'
+import 'highlight.js/lib/languages/markdown'
 
 const route = useRoute()
 const renderedMarkdown = ref('')
@@ -169,6 +182,9 @@ const handleContentClick = (event) => {
 
     // Open the custom lightbox
     openLightbox(event.target.src, event.target.alt);
+  } else if (event.target.classList.contains('code-copy-button')) {
+    // 处理复制按钮点击
+    handleCopyButtonClick(event);
   }
 };
 
@@ -300,7 +316,98 @@ const lightboxSaveImage = () => {
   link.click();
   document.body.removeChild(link);
 };
-// --- End Custom Lightbox Functions ---
+
+// --- 代码复制功能 ---
+const handleCopyButtonClick = (event) => {
+  const button = event.target.closest('.code-copy-button');
+  const pre = button.closest('pre');
+  const code = pre.querySelector('code');
+  
+  if (code) {
+    // 获取代码内容
+    const text = code.textContent;
+    
+    // 复制到剪贴板
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        // 复制成功，更新按钮状态
+        button.classList.add('copied');
+        button.innerText = '已复制';
+        
+        // 2秒后恢复按钮状态
+        setTimeout(() => {
+          button.classList.remove('copied');
+          button.innerText = '复制';
+        }, 2000);
+      })
+      .catch(err => {
+        console.error('复制失败:', err);
+      });
+  }
+};
+
+// 给代码块添加复制按钮
+const addCopyButtonsToCodeBlocks = () => {
+  if (!contentRef.value) return;
+  
+  // 查找所有代码块
+  const preElements = contentRef.value.querySelectorAll('pre');
+  
+  preElements.forEach(pre => {
+    // 检查是否已经有复制按钮，避免重复添加
+    if (pre.querySelector('.code-copy-button')) return;
+    
+    // 创建复制按钮
+    const copyButton = document.createElement('button');
+    copyButton.className = 'code-copy-button';
+    copyButton.textContent = '复制';
+    
+    // 设置按钮位置
+    pre.style.position = 'relative';
+    
+    // 添加到代码块
+    pre.appendChild(copyButton);
+  });
+};
+
+// --- 代码高亮处理 ---
+const applyCodeHighlight = () => {
+  if (!contentRef.value) return;
+  
+  // 获取所有代码块
+  const codeBlocks = contentRef.value.querySelectorAll('pre code');
+
+  codeBlocks.forEach((codeBlock) => {
+    // 应用高亮
+    hljs.highlightElement(codeBlock);
+
+    // 获取代码块语言
+    const classNames = Array.from(codeBlock.classList);
+    const languageClass = classNames.find(className => className.startsWith('language-'));
+    const language = languageClass ? languageClass.replace('language-', '') : '文本';
+
+    // 检查父元素是否已有语言标签
+    const pre = codeBlock.parentElement;
+    if (!pre.querySelector('.code-language')) {
+      // 创建语言标签
+      const languageTag = document.createElement('span');
+      languageTag.className = 'code-language';
+      languageTag.textContent = language;
+      pre.appendChild(languageTag);
+    }
+    
+    // 添加主题类名，用于切换亮色/暗色主题
+    codeBlock.classList.add('hljs-github'); // 默认添加亮色主题类
+    // 克隆一个用于暗色主题的节点
+    const darkThemeCode = codeBlock.cloneNode(true);
+    darkThemeCode.classList.remove('hljs-github');
+    darkThemeCode.classList.add('hljs-github-dark');
+    darkThemeCode.style.display = 'none'; // 默认隐藏
+    
+    // 将暗色主题代码块添加到pre中
+    pre.appendChild(darkThemeCode);
+  });
+};
 
 const loadContent = async (path) => {
   // Remove previous listener if contentRef exists from a previous load
@@ -356,6 +463,11 @@ const loadContent = async (path) => {
     error.value = '加载内容时出错'; // Set error message
   } finally {
     loading.value = false;
+    // 在内容加载完成后添加复制按钮
+    await nextTick();
+    addCopyButtonsToCodeBlocks();
+    // 应用代码高亮
+    applyCodeHighlight();
   }
 }
 
@@ -379,6 +491,11 @@ watch(loading, async (isLoading) => {
       // Add new listener
       contentRef.value.addEventListener('click', handleContentClick);
       console.log('Click listener attached after loading finished.');
+      
+      // 添加代码块复制按钮
+      addCopyButtonsToCodeBlocks();
+      // 应用代码高亮
+      applyCodeHighlight();
     } else {
       console.error('contentRef is STILL null after loading finished and nextTick. Check template structure and v-if conditions.');
     }
@@ -714,7 +831,14 @@ watch(() => route.path, (newPath) => {
 .wiki-content :deep(ul), .wiki-content :deep(ol) { margin-bottom: 1em; padding-left: 2em; }
 .wiki-content :deep(li) { margin-bottom: 0.5em; }
 .wiki-content :deep(code:not(pre code)) { background-color: #f8f8f8; padding: 0.2em 0.4em; border-radius: 3px; font-family: 'Courier New', Courier, monospace; font-size: 0.9em;}
-.wiki-content :deep(pre) { background-color: #f8f8f8; padding: 1em; border-radius: 5px; overflow-x: auto; margin-bottom: 1em;}
+.wiki-content :deep(pre) { 
+  background-color: #f8f8f8; 
+  padding: 1em; 
+  border-radius: 5px; 
+  overflow-x: auto; 
+  margin-bottom: 1em;
+  position: relative; /* 确保可以正确定位复制按钮 */
+}
 .wiki-content :deep(pre code) { padding: 0; background-color: transparent; border-radius: 0; font-size: 1em; white-space: pre; }
 .wiki-content :deep(blockquote) { border-left: 4px solid #eee; padding-left: 1em; margin-left: 0; color: #666; margin-bottom: 1em;}
 .wiki-content :deep(table) { border-collapse: collapse; width: 100%; margin-bottom: 1em; display: block; overflow-x: auto; }
@@ -722,6 +846,60 @@ watch(() => route.path, (newPath) => {
 .wiki-content :deep(th) { background-color: #f2f2f2; }
 .wiki-content :deep(img) { max-width: 100%; height: auto; }
 .wiki-content :deep(hr) { border: none; border-top: 1px solid #eee; margin: 1em 0; }
+
+/* 代码复制按钮样式 */
+.wiki-content :deep(.code-copy-button) {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  color: #ec4319;
+  background-color: transparent;
+  border: 1px solid #ec4319;
+  border-radius: 3px;
+  cursor: pointer;
+  opacity: 1;
+  transition: all 0.2s ease-in-out;
+  z-index: 1;
+}
+
+.wiki-content :deep(pre:hover .code-copy-button) {
+  opacity: 1;
+}
+
+.wiki-content :deep(.code-copy-button:hover) {
+  background-color: #ec4319;
+  color: white;
+}
+
+.wiki-content :deep(.code-copy-button.copied) {
+  background-color: #28a745;
+  color: white;
+  border-color: #28a745;
+}
+
+.wiki-content :deep(.code-copy-button.copied:hover) {
+  background-color: #218838;
+}
+
+/* 暗色模式下的复制按钮样式 */
+#app.dark-mode .wiki-content :deep(.code-copy-button) {
+  background-color: transparent;
+  color: #ec4319;
+  border-color: #ec4319;
+}
+
+#app.dark-mode .wiki-content :deep(.code-copy-button:hover) {
+  background-color: #ec4319;
+  color: #ffffff;
+}
+
+#app.dark-mode .wiki-content :deep(.code-copy-button.copied) {
+  background-color: #28a745;
+  color: white;
+  border-color: #28a745;
+}
 
 /* Dark mode Markdown styles */
 #app.dark-mode .wiki-content :deep(code:not(pre code)) { background-color: #3a3a3a; color: #e0e0e0; }
@@ -732,6 +910,67 @@ watch(() => route.path, (newPath) => {
 #app.dark-mode .wiki-content :deep(h1), #app.dark-mode .wiki-content :deep(h2) { border-bottom-color: #444; }
 #app.dark-mode .wiki-content :deep(hr) { border-top-color: #444; }
 
+/* 代码语言标签样式 */
+.wiki-content :deep(.code-language) {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  color: #ec4319;
+  background-color: transparent;
+  border: 1px solid #ec4319;
+  border-radius: 3px;
+  font-family: 'Courier New', Courier, monospace;
+  z-index: 1;
+}
+
+/* 暗色模式下的代码语言标签样式 */
+#app.dark-mode .wiki-content :deep(.code-language) {
+  color: #ec4319;
+  background-color: transparent;
+  border-color: #ec4319;
+}
+
+/* 主题样式选择器 - 用于根据暗色/亮色模式选择对应的高亮主题 */
+/* 亮色模式 (默认) */
+.wiki-content :deep(.hljs-github) {
+  display: block;
+}
+.wiki-content :deep(.hljs-github-dark) {
+  display: none;
+}
+
+/* 暗色模式 */
+#app.dark-mode .wiki-content :deep(.hljs-github) {
+  display: none;
+}
+#app.dark-mode .wiki-content :deep(.hljs-github-dark) {
+  display: block;
+}
+
+/* 高亮样式覆盖（使用:deep确保能影响到hljs的样式） */
+.wiki-content :deep(.hljs) {
+  background: transparent; /* 让背景透明，使用pre的背景色 */
+  padding: 0; /* 移除默认padding */
+}
+
+#app.dark-mode .wiki-content :deep(pre) {
+  background-color: #2a2a2a;
+}
+
+#app.dark-mode .wiki-content :deep(.hljs) {
+  /* 暗色模式下可能需要覆盖某些高亮样式 */
+  color: #e0e0e0;
+}
+
+/* 修改预定义的代码块样式，添加足够的padding以适应语言标签 */
+.wiki-content :deep(pre) {
+  padding-top: 2.5rem; /* 增加顶部padding给语言标签留空间 */
+}
+
+/* Dark mode Markdown styles */
+#app.dark-mode .wiki-content :deep(code:not(pre code)) { background-color: #3a3a3a; color: #e0e0e0; }
 
 /* Responsive adjustments - Define base mobile TOC state here */
 @media (max-width: 992px) {
