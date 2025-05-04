@@ -3,18 +3,23 @@
     <div v-if="loading" class="loading-placeholder">正在加载内容...</div>
     <div v-else-if="error" class="error-message">{{ error }}</div>
     <template v-else>
-      <!-- Contributor Info - Now shows a list -->
-      <div v-if="contributorsList.length > 0" class="contributor-info">
-        <span class="contributor-label">贡献者列表:</span>
-        <span v-for="(contributor, index) in contributorsList" :key="contributor" class="contributor-name">
-          <!-- Add link if needed, for now just text -->
-          {{ contributor }}
-          <!-- Add comma separation -->
-          <span v-if="index < contributorsList.length - 1">, </span>
-        </span>
-      </div>
+      <!-- New Wrapper for Content and Contributors -->
+      <div class="main-content-wrapper">
+        <!-- Contributor Info - Now shows a list -->
+        <div v-if="contributorsList.length > 0" class="contributor-info">
+          <span class="contributor-label">贡献者列表:</span>
+          <span v-for="(contributor, index) in contributorsList" :key="contributor" class="contributor-name">
+            <!-- Add link if needed, for now just text -->
+            {{ contributor }}
+            <!-- Add comma separation -->
+            <span v-if="index < contributorsList.length - 1">, </span>
+          </span>
+        </div>
 
-      <div class="wiki-content" ref="contentRef" v-html="renderedMarkdown"></div>
+        <!-- 文章内容区域 -->
+        <div class="wiki-content" ref="contentRef" v-html="renderedMarkdown"></div>
+      </div>
+      <!-- End New Wrapper -->
 
       <!-- Mobile FAB for TOC -->
       <button v-if="tocItems.length > 0 && isMobileView && !isMobileTocVisible" class="toc-fab" @click="toggleMobileToc" aria-label="展开目录">
@@ -791,11 +796,11 @@ const lastCommitDate = computed(() => {
 
 /* Contributor Info Styles */
 .contributor-info {
-  margin-bottom: 20px; /* Space above main content */
-  font-size: 0.9em;
+  /* margin-top: 0px; */ /* Adjust as needed */
+  margin-bottom: 5px; /* Further reduce space above main content/title */
+  font-size: 0.85em; /* Slightly smaller font */
   color: #6c757d; /* Subdued text color */
   text-align: left;
-  padding-left: 5px; /* Align with content if needed */
 }
 
 /* Style for the "Contributors:" label */
@@ -834,9 +839,17 @@ const lastCommitDate = computed(() => {
 }
 */
 
-/* Main Content Area */
+/* NEW: Style for the main content wrapper */
+.main-content-wrapper {
+  flex: 1; /* Take up the available space */
+  min-width: 0; /* Prevent flex item from overflowing */
+  display: flex; /* Optional: if you need flex inside, but default block is fine */
+  flex-direction: column; /* Ensure vertical stacking inside */
+}
+
+/* Main Content Area - Removed flex: 1 */
 .wiki-content {
-  flex: 1;
+  /* flex: 1; */ /* Removed: Now handled by wrapper */
   min-width: 0; /* Prevent flex item from overflowing */
   padding: 0; /* Padding is now handled by parent main-content */
   line-height: 1.6;
