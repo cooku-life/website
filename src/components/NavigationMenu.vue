@@ -4,7 +4,12 @@
     <div v-if="loading">正在加载目录...</div>
     <div v-else-if="error">加载目录失败: {{ error }}</div>
     <ul v-else-if="menuItems.length > 0">
-      <NavItem v-for="item in menuItems" :key="item.path || item.name" :item="item" />
+      <NavItem 
+        v-for="item in menuItems" 
+        :key="item.path || item.name" 
+        :item="item" 
+        @item-clicked="$emit('close-menu')" 
+      />
     </ul>
     <div v-else>无导航项</div>
   </aside>
@@ -14,6 +19,9 @@
 import { ref, onMounted } from 'vue'
 import NavItem from './NavItem.vue'
 import { menu } from '@/generated/menu.js' // 从生成的文件导入
+
+// Define emits
+const emit = defineEmits(['close-menu'])
 
 const menuItems = ref([])
 const loading = ref(true) // 初始状态为 true
@@ -67,7 +75,7 @@ onMounted(() => {
 @media (max-width: 768px) {
   .navigation-menu {
     width: 100%;
-    height: auto; /* Auto height on mobile */
+    /* height: auto; /* Auto height on mobile - Removed */
     border-right: none;
     border-bottom: 1px solid #e9ecef;
     padding: 10px 15px;

@@ -12,7 +12,11 @@
     />
     <div v-if="isMobileNavOpen && isMobileView" class="mobile-nav-overlay" @click="closeMobileNav"></div>
     <div class="page-body"> 
-      <NavigationMenu class="nav-container" :class="{ 'is-mobile-open': isMobileNavOpen && isMobileView }" />
+      <NavigationMenu 
+        class="nav-container" 
+        :class="{ 'is-mobile-open': isMobileNavOpen && isMobileView }" 
+        @close-menu="closeMobileNav"
+      />
       <div class="content-and-footer"> 
         <main class="main-content">
           <router-view />
@@ -276,7 +280,7 @@ body.dark-mode-body {
     position: fixed;
     top: 60px;
     left: 0;
-    max-height: calc(100vh - 60px);
+    max-height: 70vh;
     width: 100%;
     background-color: #f8f9fa;
     border-bottom: 1px solid #e9ecef;

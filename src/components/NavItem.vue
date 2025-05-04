@@ -2,11 +2,11 @@
   <li :class="{ 'directory': item.type === 'directory', 'file-item': item.type === 'file' }">
     <div @click="toggleExpand" :class="{ 'nav-item-header': true, 'clickable': item.type === 'directory' }">
       <span v-if="item.type === 'directory'" class="icon">{{ isExpanded ? '📂' : '📁' }}</span>
-      <router-link v-if="item.type === 'file'" :to="item.path" class="nav-link">{{ item.name }}</router-link>
+      <router-link v-if="item.type === 'file'" :to="item.path" class="nav-link" @click="handleItemClick">{{ item.name }}</router-link>
       <span v-else>{{ item.name }}</span>
     </div>
     <ul v-if="item.type === 'directory' && isExpanded && item.children && item.children.length">
-      <NavItem v-for="child in item.children" :key="child.path" :item="child" />
+      <NavItem v-for="child in item.children" :key="child.path" :item="child" @item-clicked="$emit('item-clicked')" />
     </ul>
   </li>
 </template>
@@ -21,11 +21,20 @@ const props = defineProps({
   }
 })
 
+const emit = defineEmits(['item-clicked'])
+
 const isExpanded = ref(false)
 
 const toggleExpand = () => {
   if (props.item.type === 'directory') {
     isExpanded.value = !isExpanded.value
+  }
+}
+
+const handleItemClick = () => {
+  // 只有文件类型点击时才触发收起菜单
+  if (props.item.type === 'file') {
+    emit('item-clicked')
   }
 }
 
