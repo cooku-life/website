@@ -33,6 +33,56 @@
         </ul>
       </aside>
     </template>
+
+    <!-- Custom Lightbox Overlay -->
+    <transition name="lightbox-fade">
+      <div v-if="isLightboxVisible" class="custom-lightbox-overlay" @click="handleOverlayClick"> 
+        <div class="custom-lightbox-content">
+          <img 
+            :src="lightboxImageUrl" 
+            :alt="lightboxImageAlt" 
+            class="custom-lightbox-image"
+            :style="{ transform: `scale(${lightboxZoom})` }"
+            @click.stop
+            ref="lightboxImageRef"
+          >
+        </div>
+      </div>
+    </transition>
+
+    <!-- Custom Lightbox Controls (Fixed at bottom) -->
+    <transition name="slide-up">
+      <div v-if="isLightboxVisible" class="custom-lightbox-controls">
+          <button @click="lightboxZoomIn" aria-label="放大" title="放大">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              <line x1="11" y1="8" x2="11" y2="14"></line>
+              <line x1="8" y1="11" x2="14" y2="11"></line>
+            </svg>
+          </button>
+          <button @click="lightboxZoomOut" aria-label="缩小" title="缩小">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              <line x1="8" y1="11" x2="14" y2="11"></line>
+            </svg>
+          </button>
+          <button @click="lightboxSaveImage" aria-label="保存" title="保存">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+              <polyline points="17 21 17 13 7 13 7 21"></polyline>
+              <polyline points="7 3 7 8 15 8"></polyline>
+            </svg>
+          </button>
+          <button @click="closeLightbox" aria-label="关闭" title="关闭">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+      </div>
+    </transition>
   </div>
 </template>
 
@@ -50,6 +100,18 @@ const loading = ref(true)
 const error = ref(null)
 const isMobileView = ref(window.innerWidth <= 992) // Use 992px breakpoint consistent with CSS
 const isMobileTocVisible = ref(false)
+
+// --- Custom Lightbox State ---
+const isLightboxVisible = ref(false)
+const lightboxImageUrl = ref('')
+const lightboxImageAlt = ref('')
+const lightboxZoom = ref(1)
+const lightboxImageRef = ref(null) // 引用图片元素
+// 用于触摸手势
+const touchStartDistance = ref(0)
+// 缩放速度调整
+const ZOOM_SPEED = 0.1
+// --- End Custom Lightbox State ---
 
 const handleResize = () => {
   isMobileView.value = window.innerWidth <= 992;
@@ -94,7 +156,159 @@ const handleTocLinkClick = (id) => {
   }
 }
 
+const handleContentClick = (event) => {
+  console.log('Content clicked:', event.target);
+  if (event.target.tagName === 'IMG') {
+    console.log('Image clicked:', event.target.src);
+    event.preventDefault(); // Prevent default image behavior if needed
+
+    // Ensure we are not clicking an image inside a link already
+    if (event.target.closest('a')) { // Check if the image is inside a link
+      return;
+    }
+
+    // Open the custom lightbox
+    openLightbox(event.target.src, event.target.alt);
+  }
+};
+
+// --- Custom Lightbox Functions ---
+const handleOverlayClick = (event) => {
+  // Close lightbox when clicking anywhere except the image itself
+  // (The image has @click.stop so this handler won't execute when image is clicked)
+  closeLightbox();
+};
+
+// --- 处理鼠标滚轮缩放 ---
+const handleWheel = (event) => {
+  // 只在按住 Ctrl 键时才缩放
+  if (event.ctrlKey) {
+    event.preventDefault(); // 阻止默认滚动行为
+    
+    // deltaY 负值表示向上滚动（放大），正值表示向下滚动（缩小）
+    const zoomDelta = event.deltaY > 0 ? -ZOOM_SPEED : ZOOM_SPEED;
+    updateZoom(lightboxZoom.value + zoomDelta);
+  }
+};
+
+// --- 处理触摸手势 ---
+const handleTouchStart = (event) => {
+  // 只在有两个或更多触摸点时处理
+  if (event.touches.length >= 2) {
+    // 计算两个触摸点之间的初始距离
+    const touch1 = event.touches[0];
+    const touch2 = event.touches[1];
+    touchStartDistance.value = Math.hypot(
+      touch2.clientX - touch1.clientX,
+      touch2.clientY - touch1.clientY
+    );
+  }
+};
+
+const handleTouchMove = (event) => {
+  // 阻止默认行为，避免页面滚动
+  if (event.touches.length >= 2) {
+    event.preventDefault();
+    
+    // 计算当前两个触摸点之间的距离
+    const touch1 = event.touches[0];
+    const touch2 = event.touches[1];
+    const currentDistance = Math.hypot(
+      touch2.clientX - touch1.clientX,
+      touch2.clientY - touch1.clientY
+    );
+    
+    // 如果有初始距离，计算缩放比例
+    if (touchStartDistance.value > 0) {
+      // 计算新的缩放级别
+      const scale = currentDistance / touchStartDistance.value;
+      const newZoom = Math.max(0.5, Math.min(3, lightboxZoom.value * scale));
+      
+      // 更新缩放值并重设初始距离（为下一次移动做准备）
+      updateZoom(newZoom);
+      touchStartDistance.value = currentDistance;
+    }
+  }
+};
+
+// 辅助函数：更新缩放值（限制范围在 0.5 到 3 之间）
+const updateZoom = (newZoom) => {
+  lightboxZoom.value = Math.max(0.5, Math.min(3, newZoom));
+};
+
+// 添加缩放相关的事件监听器
+const addZoomEventListeners = () => {
+  if (lightboxImageRef.value) {
+    // 添加鼠标滚轮事件
+    lightboxImageRef.value.addEventListener('wheel', handleWheel, { passive: false });
+    
+    // 添加触摸事件
+    lightboxImageRef.value.addEventListener('touchstart', handleTouchStart, { passive: true });
+    lightboxImageRef.value.addEventListener('touchmove', handleTouchMove, { passive: false });
+  }
+};
+
+// 移除缩放相关的事件监听器
+const removeZoomEventListeners = () => {
+  if (lightboxImageRef.value) {
+    // 移除鼠标滚轮事件
+    lightboxImageRef.value.removeEventListener('wheel', handleWheel);
+    
+    // 移除触摸事件
+    lightboxImageRef.value.removeEventListener('touchstart', handleTouchStart);
+    lightboxImageRef.value.removeEventListener('touchmove', handleTouchMove);
+  }
+};
+
+const openLightbox = (src, alt) => {
+  lightboxImageUrl.value = src;
+  lightboxImageAlt.value = alt || 'Image';
+  lightboxZoom.value = 1; // Reset zoom
+  isLightboxVisible.value = true;
+  document.body.style.overflow = 'hidden'; // Prevent body scroll
+  
+  // 等待DOM更新后添加事件监听器
+  nextTick(() => {
+    addZoomEventListeners();
+  });
+};
+
+const closeLightbox = () => {
+  // 移除事件监听器
+  removeZoomEventListeners();
+  
+  isLightboxVisible.value = false;
+  lightboxImageUrl.value = '';
+  lightboxImageAlt.value = '';
+  document.body.style.overflow = ''; // Restore body scroll
+};
+
+const lightboxZoomIn = () => {
+  lightboxZoom.value = Math.min(lightboxZoom.value + 0.2, 3); // Max zoom 3x
+};
+
+const lightboxZoomOut = () => {
+  lightboxZoom.value = Math.max(lightboxZoom.value - 0.2, 0.5); // Min zoom 0.5x
+};
+
+const lightboxSaveImage = () => {
+  const link = document.createElement('a');
+  link.href = lightboxImageUrl.value;
+  const filename = lightboxImageUrl.value.substring(lightboxImageUrl.value.lastIndexOf('/') + 1) || 'downloaded-image';
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+// --- End Custom Lightbox Functions ---
+
 const loadContent = async (path) => {
+  // Remove previous listener if contentRef exists from a previous load
+  if (contentRef.value) {
+    console.log('Removing previous click listener before loading new content.');
+    contentRef.value.removeEventListener('click', handleContentClick);
+  }
+
   loading.value = true
   error.value = null
   closeMobileToc(); // Close TOC when loading new content
@@ -127,6 +341,7 @@ const loadContent = async (path) => {
       // Ensure TOC update happens after HTML is potentially rendered
       await nextTick();
       tocItems.value = toc || [];
+
     } else {
       // Handle page not found in generated content
       renderedMarkdown.value = '<h1>页面未找到</h1><p>抱歉，无法在预生成的内容中找到您请求的页面。</p>';
@@ -150,8 +365,39 @@ onMounted(() => {
   loadContent(route.path);
 })
 
+// Watch the loading state to manage the listener
+watch(loading, async (isLoading) => {
+  console.log(`Loading state changed: ${isLoading}`);
+  if (!isLoading && !error.value) {
+    // Loading just finished successfully
+    console.log('Loading finished. Waiting for nextTick to attach listener...');
+    await nextTick(); // Wait for v-if to render the content div
+    console.log('nextTick after loading finished. contentRef:', contentRef.value);
+    if (contentRef.value) {
+      // Remove previous listener just in case (e.g., rapid navigation)
+      contentRef.value.removeEventListener('click', handleContentClick);
+      // Add new listener
+      contentRef.value.addEventListener('click', handleContentClick);
+      console.log('Click listener attached after loading finished.');
+    } else {
+      console.error('contentRef is STILL null after loading finished and nextTick. Check template structure and v-if conditions.');
+    }
+  } else if (isLoading) {
+    // Loading started, remove listener if element exists from previous render
+    if (contentRef.value) {
+      console.log('Loading started, removing existing listener.');
+      contentRef.value.removeEventListener('click', handleContentClick);
+    }
+  }
+});
+
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize);
+  // Clean up lightbox listener
+  if (contentRef.value) {
+    console.log('Removing click listener from contentRef on unmount.');
+    contentRef.value.removeEventListener('click', handleContentClick);
+  }
 })
 
 // Watch for route changes and fetch new content
@@ -376,6 +622,78 @@ watch(() => route.path, (newPath) => {
   color: #f8f9fa;
 }
 
+/* BasicLightbox Dark Mode Compatibility */
+
+.basicLightbox__placeholder > img {
+  max-width: 90vw;
+  max-height: 90vh;
+}
+#app.dark-mode .basicLightbox__placeholder {
+   color: #e0e0e0; /* Ensure text/icons inside lightbox are visible if any */
+}
+/* Force dark theme on lightbox if app is in dark mode */
+#app.dark-mode .basicLightbox {
+  background: rgba(20, 20, 20, 0.9); /* Darker overlay for dark mode */
+}
+
+/* Lightbox Styles */
+.lightbox-image-container { 
+  position: relative;
+  display: flex; /* Use flex to help center image if needed */
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+/* Controls (Appended Dynamically to placeholder) */
+.lightbox-controls {
+  position: absolute;
+  bottom: 15px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(30, 30, 30, 0.7);
+  padding: 8px 12px;
+  border-radius: 20px;
+  display: flex;
+  gap: 10px;
+  z-index: 1150;
+}
+
+.lightbox-btn {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 5px;
+  line-height: 1;
+  transition: color 0.2s ease;
+}
+
+.lightbox-btn:hover {
+  color: #ccc;
+}
+
+/* Dark mode adjustments for controls */
+#app.dark-mode .lightbox-controls {
+  background-color: rgba(50, 50, 50, 0.8);
+}
+#app.dark-mode .lightbox-btn {
+  color: #e0e0e0;
+}
+#app.dark-mode .lightbox-btn:hover {
+  color: #ffffff;
+}
+
+/* Styles for the image itself within the container */
+.lightbox-image {
+  display: block; /* Ensure image behaves predictably */
+  max-width: 90%; /* Adjust max-width/height as needed */
+  max-height: 85%; /* Leave space for controls */
+  object-fit: contain; /* Ensure aspect ratio is maintained */
+  /* Zoom styles are applied via JS */
+}
 
 /* Markdown content styles (:deep) */
 .wiki-content :deep(h1),
@@ -483,5 +801,112 @@ watch(() => route.path, (newPath) => {
       color: #f8f9fa;
     }
   }
+}
+
+/* Custom Lightbox Styles */
+.custom-lightbox-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.85);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000; /* High z-index */
+  padding-bottom: 60px; /* Space for controls */
+  box-sizing: border-box;
+}
+
+.custom-lightbox-content {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 90%; /* Reduced from 100% to ensure there's clickable space around it */
+  height: 90%; /* Reduced from 100% to ensure there's clickable space around it */
+  margin: auto; /* Center the content in the overlay */
+  overflow: hidden; /* Prevent zoomed image spilling */
+  position: relative; /* Ensure it's positioned relative to the overlay */
+  /* Add a subtle border for debugging - can be removed later */
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.custom-lightbox-image {
+  display: block;
+  max-width: 95%; /* Max width within overlay */
+  max-height: 95%; /* Max height within overlay */
+  object-fit: contain;
+  transition: transform 0.2s ease;
+  transform-origin: center center;
+}
+
+.custom-lightbox-controls {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: rgba(30, 30, 30, 0.9);
+  padding: 10px 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 24px;
+  z-index: 2010; /* Above overlay */
+  height: 50px; /* Fixed height */
+  box-sizing: border-box;
+}
+
+.custom-lightbox-controls button {
+  background: none;
+  border: none;
+  color: white;
+  padding: 8px;
+  line-height: 0; /* 修正行高，让SVG图标垂直居中 */
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.custom-lightbox-controls button:hover {
+  color: #e0e0e0;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.custom-lightbox-controls button:active {
+  transform: scale(0.95);
+}
+
+/* Ensure SVG icons stay properly sized and colored */
+.custom-lightbox-controls button svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+/* Transitions for lightbox */
+.lightbox-fade-enter-active,
+.lightbox-fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+.lightbox-fade-enter-from,
+.lightbox-fade-leave-to {
+  opacity: 0;
+}
+
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: transform 0.3s ease;
+}
+.slide-up-enter-from,
+.slide-up-leave-to {
+  transform: translateY(100%);
 }
 </style>
