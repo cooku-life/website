@@ -7,7 +7,8 @@
     "dev": "npm run generate && vite",
     "generate": "node ./scripts/generate-content.mjs",
     "build": "npm run generate && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy": "cd dist && rimraf .git && git init && git add -A && git commit -m \"deploy\" && git push -f git@github.com:cooku-life/cooku-life.github.io.git master:main"
   },
   "dependencies": {
     "marked": "^15.0.11",

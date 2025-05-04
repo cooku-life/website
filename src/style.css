@@ -58,11 +58,6 @@ button:focus-visible {
   padding: 2em;
 }
 
-#app {
-  /* margin: 0 auto; Removed for left alignment */
-  padding: 2rem;
-  /* text-align: center; Removed */
-}
 
 @media (prefers-color-scheme: light) {
   :root {
