@@ -118,9 +118,9 @@ import { useRoute } from 'vue-router'
 import { pages } from '@/generated/content.js' // Import pre-generated content
 // 导入highlight.js核心库和样式
 import hljs from 'highlight.js'
-// 导入主题样式 - 选择github主题(亮色)和github-dark主题(暗色)
-import 'highlight.js/styles/github.css' // 亮色主题
-import 'highlight.js/styles/github-dark.css' // 暗色主题 (将通过CSS选择器进行条件加载)
+// 导入主题样式 - 选择 atom-one-light (亮色) 和 github-dark (暗色)
+import 'highlight.js/styles/atom-one-light.css'; // 新的亮色主题
+import 'highlight.js/styles/github-dark.css'; // 暗色主题
 // 导入常用语言
 import 'highlight.js/lib/languages/javascript'
 import 'highlight.js/lib/languages/typescript'
@@ -487,13 +487,13 @@ const applyCodeHighlight = () => {
       pre.appendChild(languageTag);
     }
     
-    // 添加主题类名，用于切换亮色/暗色主题
-    codeBlock.classList.add('hljs-github'); // 默认添加亮色主题类
+    // 添加主题类名和标识类，用于切换亮色/暗色主题
+    codeBlock.classList.add('light-theme-code'); // 标识亮色主题节点 (会被 atom-one-light.css 样式化)
     // 克隆一个用于暗色主题的节点
     const darkThemeCode = codeBlock.cloneNode(true);
-    darkThemeCode.classList.remove('hljs-github');
-    darkThemeCode.classList.add('hljs-github-dark');
-    darkThemeCode.style.display = 'none'; // 默认隐藏
+    darkThemeCode.classList.remove('light-theme-code'); // 移除亮色标识
+    darkThemeCode.classList.add('dark-theme-code'); // 添加暗色标识
+    darkThemeCode.classList.add('hljs-github-dark'); // 保留暗色主题CSS需要的类
     
     // 将暗色主题代码块添加到pre中
     pre.appendChild(darkThemeCode);
@@ -1156,7 +1156,8 @@ const lastCommitDate = computed(() => {
   border-radius: 5px; 
   overflow-x: auto; 
   margin-bottom: 1em;
-  position: relative; /* 确保可以正确定位复制按钮 */
+  position: relative !important; /* 在这里添加 !important */
+  padding-top: 2.5rem; 
 }
 .wiki-content :deep(pre code) { padding: 0; background-color: transparent; border-radius: 0; font-size: 1em; white-space: pre; }
 .wiki-content :deep(blockquote) { border-left: 4px solid #eee; padding-left: 1em; margin-left: 0; color: #666; margin-bottom: 1em;}
@@ -1222,49 +1223,21 @@ const lastCommitDate = computed(() => {
 
 /* Dark mode Markdown styles */
 #app.dark-mode .wiki-content :deep(code:not(pre code)) { background-color: #3a3a3a; color: #e0e0e0; }
-#app.dark-mode .wiki-content :deep(pre) { background-color: #2a2a2a; }
-#app.dark-mode .wiki-content :deep(blockquote) { border-left-color: #444; color: #aaa; }
-#app.dark-mode .wiki-content :deep(th), #app.dark-mode .wiki-content :deep(td) { border-color: #444; }
-#app.dark-mode .wiki-content :deep(th) { background-color: #3a3a3a; }
-#app.dark-mode .wiki-content :deep(h1), #app.dark-mode .wiki-content :deep(h2) { border-bottom-color: #444; }
-#app.dark-mode .wiki-content :deep(hr) { border-top-color: #444; }
 
-/* 代码语言标签样式 */
-.wiki-content :deep(.code-language) {
-  position: absolute;
-  top: 0.5rem;
-  left: 0.5rem;
-  padding: 0.25rem 0.5rem;
-  font-size: 0.75rem;
-  color: #ec4319;
-  background-color: transparent;
-  border: 1px solid #ec4319;
-  border-radius: 3px;
-  font-family: 'Courier New', Courier, monospace;
-  z-index: 1;
-}
-
-/* 暗色模式下的代码语言标签样式 */
-#app.dark-mode .wiki-content :deep(.code-language) {
-  color: #ec4319;
-  background-color: transparent;
-  border-color: #ec4319;
-}
-
-/* 主题样式选择器 - 用于根据暗色/亮色模式选择对应的高亮主题 */
-/* 亮色模式 (默认) */
-.wiki-content :deep(.hljs-github) {
+/* UPDATE Theme switching logic */
+/* Light mode (default) */
+.wiki-content :deep(.light-theme-code) {
   display: block;
 }
-.wiki-content :deep(.hljs-github-dark) {
+.wiki-content :deep(.dark-theme-code) {
   display: none;
 }
 
-/* 暗色模式 */
-#app.dark-mode .wiki-content :deep(.hljs-github) {
+/* Dark mode */
+#app.dark-mode .wiki-content :deep(.light-theme-code) {
   display: none;
 }
-#app.dark-mode .wiki-content :deep(.hljs-github-dark) {
+#app.dark-mode .wiki-content :deep(.dark-theme-code) {
   display: block;
 }
 
@@ -1466,5 +1439,68 @@ const lastCommitDate = computed(() => {
 .slide-up-enter-from,
 .slide-up-leave-to {
   transform: translateY(100%);
+}
+
+/* --- Enhance more common elements in light mode --- */
+.wiki-content :deep(pre code.hljs-github .hljs-keyword) {
+  color: #d73a49; /* Dark red/magenta for keywords */
+}
+.wiki-content :deep(pre code.hljs-github .hljs-literal) {
+  color: #005cc5; /* Same dark blue as built-ins for literals */
+}
+.wiki-content :deep(pre code.hljs-github .hljs-number) {
+  color: #005cc5; /* Same dark blue for numbers */
+}
+.wiki-content :deep(pre code.hljs-github .hljs-params) {
+  color: #24292e; /* Dark grey/black for parameters */
+}
+.wiki-content :deep(pre code.hljs-github .hljs-function),
+.wiki-content :deep(pre code.hljs-github .hljs-class) .hljs-title {
+  color: #6f42c1; /* Purple for function/class names */
+}
+.wiki-content :deep(pre code.hljs-github .hljs-tag),
+.wiki-content :deep(pre code.hljs-github .hljs-name), /* For tag names */
+.wiki-content :deep(pre code.hljs-github .hljs-attr) {
+  color: #22863a; /* Green for HTML/XML tags and attributes */
+}
+.wiki-content :deep(pre code.hljs-github .hljs-variable) {
+  color: #e36209; /* Orange for variables */
+}
+.wiki-content :deep(pre code.hljs-github .hljs-regexp) {
+  color: #032f62; /* Dark blue for regex */
+}
+/* --- Add styles for quote, symbol/bullet in light mode --- */
+.wiki-content :deep(pre code.hljs-github .hljs-quote) {
+  color: #22863a; /* Use green like tags for quotes */
+}
+.wiki-content :deep(pre code.hljs-github .hljs-symbol),
+.wiki-content :deep(pre code.hljs-github .hljs-bullet) {
+  color: #e36209; /* Use orange like variables for symbols/bullets (like ***) */
+}
+/* If escape characters have a specific class */
+.wiki-content :deep(pre code.hljs-github .hljs-escape) {
+  color: #e36209; /* Use orange for escapes as well */
+}
+/* --- End enhancements --- */
+
+/* Make inline code darker in light mode */
+.wiki-content :deep(code:not(pre code)) {
+  background-color: #eff1f3; /* Slightly adjust background */
+  color: #24292e; /* Darker text for inline code */
+}
+
+/* 代码语言标签样式 - Ensure positioning */
+.wiki-content :deep(.code-language) {
+  position: absolute !important; /* 在这里添加 !important */
+  top: 0.5rem;
+  left: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  color: #ec4319;
+  background-color: transparent;
+  border: 1px solid #ec4319;
+  border-radius: 3px;
+  font-family: 'Courier New', Courier, monospace;
+  z-index: 2 !important; /* 提高 z-index 并添加 !important */
 }
 </style>
