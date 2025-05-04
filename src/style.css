@@ -71,3 +71,32 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+/* PC端图片宽度控制 */
+@media screen and (min-width: 768px) {
+  /* 移除全局图片缩放规则 */
+  /* img {
+    max-width: 50vw !important;
+    height: auto !important;
+    width: auto !important;
+  } */
+  
+  /* 只对WikiPage内容区域的图片应用缩放规则 */
+  .wiki-content img {
+    max-width: 50vw !important;
+    height: auto !important;
+    width: auto !important;
+  }
+  
+  /* 只针对WikiPage内容区域的容器中的图片 */
+  .wiki-content div img, 
+  .wiki-content p img, 
+  .wiki-content section img, 
+  .wiki-content article img, 
+  .wiki-content figure img, 
+  .wiki-content .content img {
+    max-width: 50vw !important;
+    width: auto !important;
+    height: auto !important;
+  }
+}
