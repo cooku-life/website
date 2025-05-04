@@ -1167,6 +1167,31 @@ const lastCommitDate = computed(() => {
 .wiki-content :deep(img) { max-width: 100%; height: auto; }
 .wiki-content :deep(hr) { border: none; border-top: 1px solid #eee; margin: 1em 0; }
 
+/* Markdown 强调样式 */
+.wiki-content :deep(em) { font-style: italic; color: #333; }
+.wiki-content :deep(strong) { font-weight: bold; color: #333; }
+.wiki-content :deep(del) { text-decoration: line-through; color: #666; }
+
+/* 夜间模式下的 Markdown 强调样式 */
+#app.dark-mode .wiki-content :deep(em) { color: #e0e0e0; }
+#app.dark-mode .wiki-content :deep(strong) { color: #ffffff; }
+#app.dark-mode .wiki-content :deep(del) { color: #aaaaaa; }
+#app.dark-mode .wiki-content :deep(h1),
+#app.dark-mode .wiki-content :deep(h2),
+#app.dark-mode .wiki-content :deep(h3),
+#app.dark-mode .wiki-content :deep(h4),
+#app.dark-mode .wiki-content :deep(h5),
+#app.dark-mode .wiki-content :deep(h6) {
+  border-bottom-color: #3a3a3a;
+}
+#app.dark-mode .wiki-content :deep(blockquote) {
+  border-left-color: #3a3a3a;
+  color: #aaaaaa;
+}
+#app.dark-mode .wiki-content :deep(hr) {
+  border-top-color: #3a3a3a;
+}
+
 /* 代码复制按钮样式 */
 .wiki-content :deep(.code-copy-button) {
   position: absolute;
@@ -1263,6 +1288,122 @@ const lastCommitDate = computed(() => {
 
 /* Dark mode Markdown styles */
 #app.dark-mode .wiki-content :deep(code:not(pre code)) { background-color: #3a3a3a; color: #e0e0e0; }
+
+/* 改进代码高亮配色方案 - 亮色模式 */
+.wiki-content :deep(pre code.hljs) {
+  font-family: 'Fira Code', Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+  font-size: 0.95em;
+  line-height: 1.5;
+}
+
+.wiki-content :deep(pre) {
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+}
+
+/* 亮色模式下的代码高亮调整 */
+.wiki-content :deep(.light-theme-code .hljs-keyword) { color: #0550ae; }
+.wiki-content :deep(.light-theme-code .hljs-built_in) { color: #6f42c1; }
+.wiki-content :deep(.light-theme-code .hljs-type) { color: #0550ae; }
+.wiki-content :deep(.light-theme-code .hljs-literal) { color: #0550ae; }
+.wiki-content :deep(.light-theme-code .hljs-number) { color: #0550ae; }
+.wiki-content :deep(.light-theme-code .hljs-string) { color: #0a3069; }
+.wiki-content :deep(.light-theme-code .hljs-comment) { color: #6a737d; }
+.wiki-content :deep(.light-theme-code .hljs-function) { color: #6f42c1; }
+.wiki-content :deep(.light-theme-code .hljs-title) { color: #6f42c1; }
+.wiki-content :deep(.light-theme-code .hljs-attr) { color: #0550ae; }
+.wiki-content :deep(.light-theme-code .hljs-tag) { color: #22863a; }
+.wiki-content :deep(.light-theme-code .hljs-attr) { color: #005cc5; }
+
+/* 暗色模式下的代码高亮调整 */
+#app.dark-mode .wiki-content :deep(pre) {
+  background-color: #1a1a1a;
+  border: 1px solid #2c2c2c;
+}
+
+.wiki-content :deep(.dark-theme-code .hljs-keyword) { color: #79b8ff; }
+.wiki-content :deep(.dark-theme-code .hljs-built_in) { color: #b392f0; }
+.wiki-content :deep(.dark-theme-code .hljs-type) { color: #79b8ff; }
+.wiki-content :deep(.dark-theme-code .hljs-literal) { color: #79b8ff; }
+.wiki-content :deep(.dark-theme-code .hljs-number) { color: #79b8ff; }
+.wiki-content :deep(.dark-theme-code .hljs-string) { color: #9ecbff; }
+.wiki-content :deep(.dark-theme-code .hljs-comment) { color: #8b949e; }
+.wiki-content :deep(.dark-theme-code .hljs-function) { color: #b392f0; }
+.wiki-content :deep(.dark-theme-code .hljs-title) { color: #b392f0; }
+.wiki-content :deep(.dark-theme-code .hljs-tag) { color: #7ee787; }
+.wiki-content :deep(.dark-theme-code .hljs-attr) { color: #79b8ff; }
+
+/* 替换为新的代码高亮配色方案 - 更高对比度 */
+
+/* 亮色模式下的代码高亮配色 - 更深色文本 */
+.wiki-content :deep(.light-theme-code) { color: #121212; } /* 基础文本颜色加深 */
+.wiki-content :deep(.light-theme-code .hljs-keyword) { color: #d73a49; font-weight: bold; } /* 红色关键字 */
+.wiki-content :deep(.light-theme-code .hljs-built_in) { color: #6f42c1; font-weight: bold; } /* 紫色内置函数 */
+.wiki-content :deep(.light-theme-code .hljs-type) { color: #005cc5; font-weight: bold; } /* 蓝色类型 */
+.wiki-content :deep(.light-theme-code .hljs-literal) { color: #005cc5; } /* 蓝色字面量 */
+.wiki-content :deep(.light-theme-code .hljs-number) { color: #005cc5; } /* 蓝色数字 */
+.wiki-content :deep(.light-theme-code .hljs-string) { color: #032f62; } /* 深蓝色字符串 */
+.wiki-content :deep(.light-theme-code .hljs-comment) { color: #5c6370; font-style: italic; } /* 灰色注释 */
+.wiki-content :deep(.light-theme-code .hljs-function) { color: #6f42c1; } /* 紫色函数 */
+.wiki-content :deep(.light-theme-code .hljs-title) { color: #24292e; font-weight: bold; } /* 黑色标题 */
+.wiki-content :deep(.light-theme-code .hljs-symbol) { color: #e36209; } /* 橙色符号 */
+.wiki-content :deep(.light-theme-code .hljs-tag) { color: #22863a; } /* 绿色标签 */
+.wiki-content :deep(.light-theme-code .hljs-name) { color: #22863a; font-weight: bold; } /* 绿色名称 */
+.wiki-content :deep(.light-theme-code .hljs-attr) { color: #005cc5; } /* 蓝色属性 */
+.wiki-content :deep(.light-theme-code .hljs-variable) { color: #e36209; } /* 橙色变量 */
+.wiki-content :deep(.light-theme-code .hljs-params) { color: #24292e; } /* 黑色参数 */
+.wiki-content :deep(.light-theme-code .hljs-quote) { color: #e36209; } /* 橙色变量 */
+.wiki-content :deep(.light-theme-code .hljs-strong) { color: #24292e; }
+.wiki-content :deep(.light-theme-code .hljs-emphasis) { color: #24292e; }
+
+/* 暗色模式下的代码高亮配色 - 增强对比度 */
+.wiki-content :deep(.dark-theme-code) { color: #e6e6e6; } /* 基础文本颜色提亮 */
+.wiki-content :deep(.dark-theme-code .hljs-keyword) { color: #ff7b72; font-weight: bold; } /* 亮红色关键字 */
+.wiki-content :deep(.dark-theme-code .hljs-built_in) { color: #d2a8ff; font-weight: bold; } /* 亮紫色内置函数 */
+.wiki-content :deep(.dark-theme-code .hljs-type) { color: #79c0ff; font-weight: bold; } /* 亮蓝色类型 */
+.wiki-content :deep(.dark-theme-code .hljs-literal) { color: #79c0ff; } /* 亮蓝色字面量 */
+.wiki-content :deep(.dark-theme-code .hljs-number) { color: #79c0ff; } /* 亮蓝色数字 */
+.wiki-content :deep(.dark-theme-code .hljs-string) { color: #a5d6ff; } /* 浅蓝色字符串 */
+.wiki-content :deep(.dark-theme-code .hljs-comment) { color: #8b949e; font-style: italic; } /* 灰色注释 */
+.wiki-content :deep(.dark-theme-code .hljs-function) { color: #d2a8ff; } /* 亮紫色函数 */
+.wiki-content :deep(.dark-theme-code .hljs-title) { color: #e6e6e6; font-weight: bold; } /* 白色标题 */
+.wiki-content :deep(.dark-theme-code .hljs-symbol) { color: #ffa657; } /* 橙色符号 */
+.wiki-content :deep(.dark-theme-code .hljs-tag) { color: #7ee787; } /* 亮绿色标签 */
+.wiki-content :deep(.dark-theme-code .hljs-name) { color: #7ee787; font-weight: bold; } /* 亮绿色名称 */
+.wiki-content :deep(.dark-theme-code .hljs-attr) { color: #79c0ff; } /* 亮蓝色属性 */
+.wiki-content :deep(.dark-theme-code .hljs-variable) { color: #ffa657; } /* 橙色变量 */
+.wiki-content :deep(.dark-theme-code .hljs-params) { color: #e6e6e6; } /* 白色参数 */
+
+/* --- Enhance more common elements in light mode --- */
+
+/* 代码语言标签样式 - Ensure positioning */
+.wiki-content :deep(.code-language) {
+  position: absolute !important; /* 在这里添加 !important */
+  top: 0.5rem;
+  left: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  color: #ec4319;
+  background-color: transparent;
+  border: 1px solid #ec4319;
+  border-radius: 3px;
+  font-family: 'Courier New', Courier, monospace;
+  z-index: 2 !important; /* 提高 z-index 并添加 !important */
+}
+
+/* 夜间模式表格样式 */
+#app.dark-mode .wiki-content :deep(table) { border-color: #3a3a3a; }
+#app.dark-mode .wiki-content :deep(th), 
+#app.dark-mode .wiki-content :deep(td) { 
+  border-color: #3a3a3a; 
+  color: #e0e0e0;
+}
+#app.dark-mode .wiki-content :deep(th) { 
+  background-color: #2a2a2a; 
+}
+#app.dark-mode .wiki-content :deep(tr) {
+  background-color: #1e1e1e;
+}
 
 /* Responsive adjustments - Define base mobile TOC state here */
 @media (max-width: 992px) {
@@ -1502,5 +1643,19 @@ const lastCommitDate = computed(() => {
   border-radius: 3px;
   font-family: 'Courier New', Courier, monospace;
   z-index: 2 !important; /* 提高 z-index 并添加 !important */
+}
+
+/* 夜间模式表格样式 */
+#app.dark-mode .wiki-content :deep(table) { border-color: #3a3a3a; }
+#app.dark-mode .wiki-content :deep(th), 
+#app.dark-mode .wiki-content :deep(td) { 
+  border-color: #3a3a3a; 
+  color: #e0e0e0;
+}
+#app.dark-mode .wiki-content :deep(th) { 
+  background-color: #2a2a2a; 
+}
+#app.dark-mode .wiki-content :deep(tr) {
+  background-color: #1e1e1e;
 }
 </style>
