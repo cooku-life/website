@@ -777,7 +777,7 @@ const lastCommitDate = computed(() => {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  margin: 0;
+  margin: 0 auto; /* 居中显示 */
   padding: 0;
 }
 
@@ -845,6 +845,9 @@ const lastCommitDate = computed(() => {
   min-width: 0; /* Prevent flex item from overflowing */
   display: flex; /* Optional: if you need flex inside, but default block is fine */
   flex-direction: column; /* Ensure vertical stacking inside */
+  max-width: 900px; /* 设置最大宽度 */
+  margin: 0 auto; /* 居中显示 */
+  width: 100%; /* 占满可用宽度，但不超过max-width */
 }
 
 /* Main Content Area - Removed flex: 1 */
@@ -857,10 +860,14 @@ const lastCommitDate = computed(() => {
   word-wrap: break-word;
   overflow-wrap: break-word;
   word-break: break-word;
+  width: 100%; /* 占满容器宽度 */
+  box-sizing: border-box; /* 确保padding不会增加总宽度 */
 }
 
 .wiki-content > * {
   text-align: left;
+  max-width: 100%; /* 确保所有子元素不超过容器宽度 */
+  box-sizing: border-box; /* 计算宽度时包含padding和border */
 }
 
 /* Desktop Table of Contents */
@@ -1142,14 +1149,15 @@ const lastCommitDate = computed(() => {
   margin-bottom: 0.5em;
   font-weight: 600;
   scroll-margin-top: 80px; /* Add top margin for scroll target (adjust for fixed header) */
+  max-width: 100%; /* 确保标题不超出容器 */
 }
 .wiki-content :deep(h1) { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
 .wiki-content :deep(h2) { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
 .wiki-content :deep(h3) { font-size: 1.25em; }
-.wiki-content :deep(p) { margin-bottom: 1em; }
-.wiki-content :deep(ul), .wiki-content :deep(ol) { margin-bottom: 1em; padding-left: 2em; }
+.wiki-content :deep(p) { margin-bottom: 1em; max-width: 100%; }
+.wiki-content :deep(ul), .wiki-content :deep(ol) { margin-bottom: 1em; padding-left: 2em; max-width: 100%; }
 .wiki-content :deep(li) { margin-bottom: 0.5em; }
-.wiki-content :deep(code:not(pre code)) { background-color: #f8f8f8; padding: 0.2em 0.4em; border-radius: 3px; font-family: 'Courier New', Courier, monospace; font-size: 0.9em;}
+.wiki-content :deep(code:not(pre code)) { background-color: #f8f8f8; padding: 0.2em 0.4em; border-radius: 3px; font-family: 'Courier New', Courier, monospace; font-size: 0.9em; word-break: break-all; white-space: pre-wrap; }
 .wiki-content :deep(pre) { 
   background-color: #f8f8f8; 
   padding: 1em; 
@@ -1158,14 +1166,16 @@ const lastCommitDate = computed(() => {
   margin-bottom: 1em;
   position: relative !important; /* 在这里添加 !important */
   padding-top: 2.5rem; 
+  max-width: 100%; /* 确保宽度不超过容器 */
+  box-sizing: border-box; /* 计算宽度时包含padding和border */
 }
-.wiki-content :deep(pre code) { padding: 0; background-color: transparent; border-radius: 0; font-size: 1em; white-space: pre; }
-.wiki-content :deep(blockquote) { border-left: 4px solid #eee; padding-left: 1em; margin-left: 0; color: #666; margin-bottom: 1em;}
-.wiki-content :deep(table) { border-collapse: collapse; width: 100%; margin-bottom: 1em; display: block; overflow-x: auto; }
+.wiki-content :deep(pre code) { padding: 0; background-color: transparent; border-radius: 0; font-size: 1em; white-space: pre; overflow-x: auto; }
+.wiki-content :deep(blockquote) { border-left: 4px solid #eee; padding-left: 1em; margin-left: 0; color: #666; margin-bottom: 1em; max-width: 100%; }
+.wiki-content :deep(table) { border-collapse: collapse; width: 100%; margin-bottom: 1em; display: block; overflow-x: auto; max-width: 100%; }
 .wiki-content :deep(th), .wiki-content :deep(td) { border: 1px solid #ddd; padding: 8px; text-align: left; }
 .wiki-content :deep(th) { background-color: #f2f2f2; }
 .wiki-content :deep(img) { max-width: 100%; height: auto; }
-.wiki-content :deep(hr) { border: none; border-top: 1px solid #eee; margin: 1em 0; }
+.wiki-content :deep(hr) { border: none; border-top: 1px solid #eee; margin: 1em 0; max-width: 100%; }
 
 /* Markdown 强调样式 */
 .wiki-content :deep(em) { font-style: italic; color: #333; }
@@ -1410,6 +1420,11 @@ const lastCommitDate = computed(() => {
   .wiki-page-container {
     flex-direction: column; /* Keep content taking full width */
     gap: 0; /* Remove gap on mobile */
+  }
+
+  .main-content-wrapper {
+    max-width: 100%; /* 在移动设备上允许内容占满宽度 */
+    padding: 0 15px; /* 两侧添加间距 */
   }
 
   /* Base styles for TOC on mobile - Hidden by default */
