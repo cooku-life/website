@@ -48,7 +48,7 @@ onMounted(() => {
 
 <style scoped>
 .navigation-menu {
-  width: 250px;
+  width: 300px;
   background-color: #f8f9fa;
   padding: 20px;
   border-right: 1px solid #e9ecef;
