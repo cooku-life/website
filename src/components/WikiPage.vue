@@ -440,8 +440,8 @@ const updateHighlighterPosition = () => {
     const padding = 5; 
     const top = activeLink.offsetTop - padding;
     const height = linkRect.height + (padding * 2);
-    const width = linkRect.width + (padding * 2); 
-    const left = activeLink.offsetLeft - padding; 
+    const width = linkRect.width + (padding * 4); 
+    const left = activeLink.offsetLeft - (padding * 2); 
 
     tocHighlighterRef.value.style.top = `${top}px`;
     tocHighlighterRef.value.style.height = `${height}px`;
