@@ -171,7 +171,7 @@ body.dark-mode-body {
 }
 
 .content-and-footer {
-  margin-left: 250px;
+  margin-left: 300px;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -359,7 +359,7 @@ body.dark-mode-body {
     border-bottom: none;
   }
   .content-and-footer {
-    margin-left: 250px;
+    margin-left: 300px;
   }
   .mobile-nav-overlay {
     display: none !important;
