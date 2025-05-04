@@ -139,6 +139,33 @@ const touchStartDistance = ref(0)
 const ZOOM_SPEED = 0.1
 // --- End Custom Lightbox State ---
 
+// --- Function to find the currently active TOC ID based on scroll position ---
+const findCurrentActiveTocId = () => {
+  if (!contentRef.value) return null;
+  
+  const headings = Array.from(contentRef.value.querySelectorAll('h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]'));
+  const offset = 85; // Pixel offset from the top of the viewport (slightly below header)
+  let currentActiveId = null;
+
+  // Find the last heading whose top is above the offset
+  for (const heading of headings) {
+    const rect = heading.getBoundingClientRect();
+    if (rect.top < offset) {
+      currentActiveId = heading.id;
+    } else {
+      // Stop checking once we find a heading below the offset
+      break; 
+    }
+  }
+  
+  // If no heading is above the offset (e.g., scrolled to top), use the first heading ID
+  if (!currentActiveId && headings.length > 0) {
+      currentActiveId = headings[0].id;
+  }
+
+  return currentActiveId;
+};
+
 const handleResize = () => {
   isMobileView.value = window.innerWidth <= 992;
   if (!isMobileView.value) {
@@ -148,6 +175,26 @@ const handleResize = () => {
 
 const toggleMobileToc = () => {
   isMobileTocVisible.value = !isMobileTocVisible.value;
+  if (isMobileTocVisible.value) {
+    // When opening the mobile TOC, find the current section and highlight it
+    const currentId = findCurrentActiveTocId();
+    if (currentId) {
+        activeTocId.value = currentId;
+        // Wait for the TOC container to be rendered/visible AND CSS transition potentially settled
+        nextTick(() => {
+          // Add a longer delay to allow CSS transition to finish
+          setTimeout(() => {
+             if (isMobileTocVisible.value && activeTocId.value === currentId) { // Check if still visible and ID matches
+                 console.log(`Updating highlighter after TOC toggle timeout for ID: ${activeTocId.value}`); // Debug log
+                 updateHighlighterPosition();
+             }
+          }); // Increased delay to 250ms
+        });
+    } else {
+         // If no ID found, potentially hide highlighter
+         if(tocHighlighterRef.value) tocHighlighterRef.value.style.opacity = '0';
+    }
+  }
 }
 
 const closeMobileToc = () => {
@@ -176,6 +223,15 @@ const scrollToHeader = (id) => {
 
 const handleTocLinkClick = (id) => {
   scrollToHeader(id);
+
+  // Schedule a re-calculation after a short delay to allow scroll animation to progress
+  setTimeout(() => {
+     if(activeTocId.value === id) { // Only update if the ID hasn't changed again quickly
+        console.log(`Updating highlighter after click timeout for ID: ${id}`); // Debug log
+        updateHighlighterPosition();
+     }
+  }, 150); // Adjust delay if needed
+
   if (isMobileView.value) {
     closeMobileToc(); // Close mobile TOC after clicking a link
   }
@@ -428,29 +484,47 @@ const updateHighlighterPosition = () => {
     return;
   }
 
-  // Find the active link element within the list
-  // Note: We need to query the DOM directly here as we don't have refs for each <li> or <a>
-  const activeLink = tocListRef.value.querySelector(`li[data-toc-id="${activeTocId.value}"] > a`); 
+  const activeLi = tocListRef.value.querySelector(`li[data-toc-id="${activeTocId.value}"]`);
+  const activeLink = activeLi ? activeLi.querySelector('a') : null; 
 
-  if (activeLink) {
+  if (activeLink && activeLi && tocListRef.value && tocHighlighterRef.value) { // Ensure refs are available
     const linkRect = activeLink.getBoundingClientRect();
     const listRect = tocListRef.value.getBoundingClientRect();
+    const scrollTopOfList = tocListRef.value.scrollTop;
 
-    // Add padding visually by adjusting dimensions and position
-    const padding = 5; 
-    const top = activeLink.offsetTop - padding;
+    // Padding adjustments from user
+    const padding = 5;
+
+    // Calculate position relative to the list container's viewport position,
+    // adjusted by the list's own scroll position.
+    const top = linkRect.top - listRect.top + scrollTopOfList - padding;
+    const left = linkRect.left - listRect.left - (padding * 2); // Use linkRect.left relative to listRect.left
+
     const height = linkRect.height + (padding * 2);
-    const width = linkRect.width + (padding * 4); 
-    const left = activeLink.offsetLeft - (padding * 2); 
+    const width = linkRect.width + (padding * 4); // Keep user's horizontal padding
+
+    // Debugging logs
+    console.log(`Updating Highlighter for ${activeTocId.value}:`);
+    console.log(`  LinkRect: top=${linkRect.top.toFixed(2)}, left=${linkRect.left.toFixed(2)}, width=${linkRect.width.toFixed(2)}, height=${linkRect.height.toFixed(2)}`);
+    console.log(`  ListRect: top=${listRect.top.toFixed(2)}, left=${listRect.left.toFixed(2)}`);
+    console.log(`  ScrollTop: ${scrollTopOfList.toFixed(2)}`);
+    console.log(`  Calculated Top: ${top.toFixed(2)}`);
+    console.log(`  Calculated Left: ${left.toFixed(2)}`);
+    console.log(`  Calculated Height: ${height.toFixed(2)}`);
+    console.log(`  Calculated Width: ${width.toFixed(2)}`);
+
 
     tocHighlighterRef.value.style.top = `${top}px`;
     tocHighlighterRef.value.style.height = `${height}px`;
-    tocHighlighterRef.value.style.width = `${width}px`; 
-    tocHighlighterRef.value.style.left = `${left}px`;   
+    tocHighlighterRef.value.style.width = `${width}px`;
+    tocHighlighterRef.value.style.left = `${left}px`;
     tocHighlighterRef.value.style.opacity = '1';
   } else {
-    // If link not found (e.g., during initial render or quick scroll), hide highlighter
-    tocHighlighterRef.value.style.opacity = '0';
+    if (tocHighlighterRef.value) {
+        tocHighlighterRef.value.style.opacity = '0';
+    }
+    // More detailed warning
+    console.warn(`Could not find active elements/refs for highlighter update: activeId=${activeTocId.value}, activeLi=${!!activeLi}, activeLink=${!!activeLink}, listRef=${!!tocListRef.value}, highlighterRef=${!!tocHighlighterRef.value}`);
   }
 };
 
@@ -714,7 +788,7 @@ watch(() => route.path, (newPath) => {
 }
 
 .toc-container a:hover {
-  color: #23527c;
+  color: #ec4319;
   text-decoration: underline;
 }
 
@@ -735,7 +809,7 @@ watch(() => route.path, (newPath) => {
 .toc-highlighter {
   position: absolute;
   /* Remove fixed left/right */
-  background-color: #ec4319;
+  background-color: #ec4319 !important; /* Force the background color */
   border-radius: 4px;
   z-index: 0; /* Behind the link text */
   opacity: 0; /* Initially hidden until positioned */
