@@ -44,6 +44,7 @@ const route = useRoute()
 const isDarkMode = ref(false)
 const isMobileNavOpen = ref(false)
 const isMobileView = ref(window.innerWidth <= 768)
+const userPrefersDarkMode = ref(null);
 
 const loadConfig = async () => {
   try {
@@ -65,13 +66,42 @@ const updateTitle = () => {
 }
 
 const toggleDarkMode = () => {
-  isDarkMode.value = !isDarkMode.value
-  localStorage.setItem('darkMode', isDarkMode.value)
+  const newMode = !isDarkMode.value;
+  isDarkMode.value = newMode;
+  userPrefersDarkMode.value = newMode;
+  localStorage.setItem('darkMode', JSON.stringify(userPrefersDarkMode.value));
 }
 
 const loadDarkModePreference = () => {
-  const preference = localStorage.getItem('darkMode')
-  isDarkMode.value = preference === 'true'
+  const storedPreference = localStorage.getItem('darkMode');
+  if (storedPreference !== null) {
+    userPrefersDarkMode.value = JSON.parse(storedPreference);
+    isDarkMode.value = userPrefersDarkMode.value;
+    console.log('Loaded user preference from localStorage:', isDarkMode.value);
+  } else {
+    userPrefersDarkMode.value = null;
+    checkSystemPreference();
+    console.log('No user preference found, checked system preference.');
+  }
+}
+
+const checkSystemPreference = () => {
+  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    isDarkMode.value = true;
+    console.log('System prefers dark mode.');
+  } else {
+    isDarkMode.value = false;
+    console.log('System prefers light mode.');
+  }
+}
+
+const mediaQueryListener = (e) => {
+  if (userPrefersDarkMode.value === null) {
+    isDarkMode.value = e.matches;
+    console.log('System preference changed, updating theme:', isDarkMode.value);
+  } else {
+    console.log('System preference changed, but user has manual override.');
+  }
 }
 
 const toggleMobileNav = () => {
@@ -96,6 +126,14 @@ onMounted(() => {
   loadDarkModePreference()
   window.addEventListener('resize', handleResize)
   handleResize()
+
+  if (window.matchMedia) {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    mediaQuery.addEventListener('change', mediaQueryListener);
+    onUnmounted(() => {
+      mediaQuery.removeEventListener('change', mediaQueryListener);
+    });
+  }
 })
 
 watch(() => route.path, () => {
