@@ -78,7 +78,7 @@ async function generateContent() {
           let existingItem = currentMap[cleanPart];
 
           if (!existingItem) {
-              const defaultName = cleanPart.replace(/[-_]/g, ' '); // Default name from part
+              const defaultName = cleanPart.replace(/_/g, ' '); 
               const title = isLastPart ? getTitleFromMd(content, defaultName) : defaultName;
 
               existingItem = {

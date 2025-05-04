@@ -31,8 +31,8 @@ import TopNavBar from './components/TopNavBar.vue'
 import { useRoute } from 'vue-router'
 
 const config = ref({ 
-  siteTitle: '我的维基', 
-  footerText: '© 2024 我的知识库. 保留所有权利.',
+  siteTitle: 'PureWiki', 
+  footerText: '© 2024 PureWiki. 保留所有权利.',
   logoSrc: '',
   navLinks: []
 })

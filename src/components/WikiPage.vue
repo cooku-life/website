@@ -4,11 +4,31 @@
     <div v-else-if="error" class="error-message">{{ error }}</div>
     <template v-else>
       <div class="wiki-content" ref="contentRef" v-html="renderedMarkdown"></div>
-      <aside class="toc-container" v-if="tocItems.length > 0">
+
+      <!-- Mobile FAB for TOC -->
+      <button v-if="tocItems.length > 0 && isMobileView && !isMobileTocVisible" class="toc-fab" @click="toggleMobileToc" aria-label="展开目录">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+      </button>
+
+      <!-- TOC Overlay for Mobile -->
+      <div 
+        v-if="isMobileView" 
+        class="toc-overlay" 
+        :class="{ 'is-visible': isMobileTocVisible }" 
+        @click="closeMobileToc"
+      ></div>
+
+      <!-- TOC Container (Desktop Sticky or Mobile Overlay) -->
+      <aside 
+        class="toc-container" 
+        :class="{ 'mobile-toc-visible': isMobileTocVisible && isMobileView }"
+        v-if="tocItems.length > 0 && (!isMobileView || isMobileTocVisible)"
+      >
+        <button v-if="isMobileView" class="toc-close-button" @click="closeMobileToc" aria-label="关闭目录">&times;</button>
         <h4>目录</h4>
         <ul>
           <li v-for="item in tocItems" :key="item.id" :class="`toc-level-${item.level}`">
-            <a :href="`#${item.id}`">{{ item.text }}</a>
+            <a :href="`#${item.id}`" @click.prevent="handleTocLinkClick(item.id)">{{ item.text }}</a>
           </li>
         </ul>
       </aside>
@@ -17,7 +37,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, nextTick } from 'vue'
+import { ref, watch, onMounted, nextTick, onUnmounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 // Removed Marked imports as parsing is done at build time
 import { pages } from '@/generated/content.js' // Import pre-generated content
@@ -28,10 +48,56 @@ const tocItems = ref([])
 const contentRef = ref(null)
 const loading = ref(true)
 const error = ref(null)
+const isMobileView = ref(window.innerWidth <= 992) // Use 992px breakpoint consistent with CSS
+const isMobileTocVisible = ref(false)
+
+const handleResize = () => {
+  isMobileView.value = window.innerWidth <= 992;
+  if (!isMobileView.value) {
+    isMobileTocVisible.value = false; // Close mobile TOC if switching to desktop
+  }
+}
+
+const toggleMobileToc = () => {
+  isMobileTocVisible.value = !isMobileTocVisible.value;
+}
+
+const closeMobileToc = () => {
+  isMobileTocVisible.value = false;
+}
+
+const scrollToHeader = (id) => {
+  const container = document.querySelector('.main-content') || document.documentElement; // Use main scroll container
+  const element = document.getElementById(id); // Use getElementById for directness
+  if (element) {
+    const offset = 80; // Adjust for fixed header height
+    const bodyRect = document.body.getBoundingClientRect().top;
+    const elementRect = element.getBoundingClientRect().top;
+    const elementPosition = elementRect - bodyRect;
+    const offsetPosition = elementPosition - offset;
+
+    container.scrollTo({
+      top: offsetPosition,
+      behavior: 'smooth'
+    });
+    // Optionally update hash without triggering vue-router reload or default jump
+    // window.history.pushState(null, null, `#${id}`); 
+  } else {
+    console.warn(`TOC scroll target not found: #${id}`);
+  }
+};
+
+const handleTocLinkClick = (id) => {
+  scrollToHeader(id);
+  if (isMobileView.value) {
+    closeMobileToc(); // Close mobile TOC after clicking a link
+  }
+}
 
 const loadContent = async (path) => {
   loading.value = true
   error.value = null
+  closeMobileToc(); // Close TOC when loading new content
   await nextTick() // Ensure DOM updates before trying to load
 
   try {
@@ -41,20 +107,19 @@ const loadContent = async (path) => {
     // Use a default path if the lookup path is empty or just '/' which corresponds to index.md
     let finalLookupPath = lookupPath || '/';
 
-    // --- DECODE THE PATH ---
-    // Decode the URL-encoded path obtained from route.path to match the keys in `pages` object
+    // --- DECODE THE PATH --- Needed for hash mode with non-ASCII chars
     finalLookupPath = decodeURIComponent(finalLookupPath);
     // --- END DECODE ---
 
-
     // --- DEBUGGING LOGS ---
-    console.log("Attempting to load content for route path:", path);
-    console.log("Using (decoded) lookup key:", finalLookupPath); // Log the decoded key
-    // Log the keys available in the generated pages object for comparison
-    // console.log("Available keys in pages:", Object.keys(pages)); 
-    // You might want to log the whole pages object too, if keys are complex
-    // console.log("Complete pages object:", pages); 
+    // console.log("Attempting to load content for route path:", path);
+    // console.log("Using lookup key:", finalLookupPath); // Log the key before potential decode
+    // console.log("Available keys in pages:", Object.keys(pages));
+    // console.log("Complete pages object:", pages);
     // --- END DEBUGGING LOGS ---
+
+    // console.log("Attempting lookup with key:", `"${finalLookupPath}"`); // Log the exact key
+    // console.log("Does key exist?", pages.hasOwnProperty(finalLookupPath)); // Check existence explicitly
 
     if (pages[finalLookupPath]) {
       const { html, toc } = pages[finalLookupPath];
@@ -66,7 +131,7 @@ const loadContent = async (path) => {
       // Handle page not found in generated content
       renderedMarkdown.value = '<h1>页面未找到</h1><p>抱歉，无法在预生成的内容中找到您请求的页面。</p>';
       tocItems.value = [];
-      console.error(`Content not found for path: ${finalLookupPath}`) // Log the decoded path in case of error now
+      console.error(`Content not found for key: "${finalLookupPath}"`); // Log key on failure
       error.value = '页面未找到'; // Set error message
     }
   } catch (err) {
@@ -81,7 +146,12 @@ const loadContent = async (path) => {
 
 // Fetch content when the component mounts
 onMounted(() => {
-  loadContent(route.path)
+  window.addEventListener('resize', handleResize);
+  loadContent(route.path);
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize);
 })
 
 // Watch for route changes and fetch new content
@@ -91,22 +161,10 @@ watch(() => route.path, (newPath) => {
 </script>
 
 <style scoped>
-/* Add styles for loading and error states */
-.loading-placeholder, .error-message {
-  padding: 40px;
-  text-align: center;
-  font-size: 1.2em;
-  color: #666;
-}
-
-.error-message {
-  color: #dc3545; /* Bootstrap danger color */
-}
-
-/* Keep existing styles */
+/* General styles */
 .wiki-page-container {
   display: flex;
-  gap: 20px;
+  gap: 20px; /* Gap between content and desktop TOC */
   position: relative;
   width: 100%;
   max-width: 100%;
@@ -115,10 +173,24 @@ watch(() => route.path, (newPath) => {
   padding: 0;
 }
 
+/* Loading and Error states */
+.loading-placeholder, .error-message {
+  padding: 40px;
+  text-align: center;
+  font-size: 1.2em;
+  color: #666;
+  flex: 1; /* Take up space */
+}
+
+.error-message {
+  color: #dc3545; /* Bootstrap danger color */
+}
+
+/* Main Content Area */
 .wiki-content {
   flex: 1;
-  min-width: 0;
-  padding: 20px;
+  min-width: 0; /* Prevent flex item from overflowing */
+  padding: 0; /* Padding is now handled by parent main-content */
   line-height: 1.6;
   text-align: left;
   word-wrap: break-word;
@@ -130,34 +202,25 @@ watch(() => route.path, (newPath) => {
   text-align: left;
 }
 
+/* Desktop Table of Contents */
 .toc-container {
   width: 200px;
   flex-shrink: 0;
-  padding-top: 20px;
+  padding: 20px 0 20px 15px; /* Add top padding */
   position: sticky;
-  top: 80px; /* Increased top value to account for fixed TopNavBar */
-  max-height: calc(100vh - 100px); /* Adjust max-height */
+  top: 80px; /* Adjust based on TopNavBar height + desired gap */
+  max-height: calc(100vh - 100px); /* Adjust max-height, consider header/footer */
   overflow-y: auto;
   border-left: 1px solid #e9ecef;
-  padding-left: 15px;
+  align-self: flex-start; /* Align to the top of the flex container */
+  box-sizing: border-box;
 }
-
-/* Dark mode adjustments for TOC if needed */
-#app.dark-mode .toc-container {
-  border-left: 1px solid #3a3a3a;
-}
-
-#app.dark-mode .toc-container a {
-  color: #ffffff; /* Example dark mode link color */
-}
-#app.dark-mode .toc-container a:hover {
-    color: #9e6cdc;
-}
-
 
 .toc-container h4 {
   margin-top: 0;
   margin-bottom: 10px;
+  font-size: 1.1em;
+  color: #495057;
 }
 
 .toc-container ul {
@@ -167,27 +230,154 @@ watch(() => route.path, (newPath) => {
 }
 
 .toc-container li {
-  margin-bottom: 5px;
+  margin-bottom: 6px;
 }
 
 .toc-container a {
   text-decoration: none;
   color: #337ab7;
-  font-size: 0.9em; /* Slightly smaller TOC font */
+  font-size: 0.9em;
+  transition: color 0.2s ease;
 }
 
 .toc-container a:hover {
+  color: #23527c;
   text-decoration: underline;
 }
 
+/* TOC Level Indentation */
 .toc-level-2 { padding-left: 15px; }
 .toc-level-3 { padding-left: 30px; }
 .toc-level-4 { padding-left: 45px; }
-.toc-level-5 { padding-left: 60px; } /* Add more levels if needed */
+.toc-level-5 { padding-left: 60px; }
 .toc-level-6 { padding-left: 75px; }
 
+/* --- Mobile TOC Styles --- */
 
-/* Markdown content styles (using :deep) */
+.toc-fab {
+  position: fixed;
+  bottom: 25px;
+  right: 25px;
+  width: 56px;
+  height: 56px;
+  background-color: #ec4319; /* User updated color */
+  color: white;
+  border: none;
+  border-radius: 50%;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1050; /* Above content, below mobile TOC */
+  transition: background-color 0.3s ease, transform 0.15s ease-out, box-shadow 0.15s ease-out; /* Added transform and box-shadow */
+}
+
+.toc-fab:hover {
+  background-color: #d43f17; /* Darker shade for hover */
+  transform: scale(1.05); /* Slightly larger on hover */
+}
+
+/* Add active state for click animation */
+.toc-fab:active {
+  transform: scale(0.95); /* Slightly smaller when pressed */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); /* Adjust shadow when pressed */
+  transition-duration: 0.1s; /* Faster transition for active state */
+}
+
+.toc-fab svg {
+  width: 24px;
+  height: 24px;
+}
+
+.toc-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1090; /* Below mobile TOC, above FAB */
+  opacity: 0;
+  visibility: hidden; /* Start hidden */
+  transition: opacity 0.3s ease, visibility 0.3s ease; /* Smooth transition for both */
+}
+
+/* Apply visibility when overlay should be active */
+.toc-overlay.is-visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Mobile TOC Container - Overlay Style */
+/* .toc-container.mobile-toc-visible { ... } */ /* Remove general rules here if they duplicate @media ones */
+
+.toc-close-button {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  background: none;
+  border: none;
+  font-size: 28px;
+  font-weight: bold;
+  color: #6c757d;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+}
+.toc-close-button:hover {
+  color: #343a40;
+}
+
+/* --- Dark Mode Adjustments --- */
+
+#app.dark-mode .wiki-content {
+  /* Inherits dark background */
+}
+#app.dark-mode .loading-placeholder, 
+#app.dark-mode .error-message {
+  color: #aaa;
+}
+#app.dark-mode .error-message {
+  color: #f8d7da; /* Light danger color */
+}
+#app.dark-mode .toc-container {
+  border-left-color: #3a3a3a;
+  background-color: transparent; /* Desktop TOC background should match main content */
+}
+#app.dark-mode .toc-container h4 {
+  color: #e0e0e0;
+}
+#app.dark-mode .toc-container a {
+  color: #bb86fc; /* Adjust link color */
+}
+#app.dark-mode .toc-container a:hover {
+    color: #d1b3ff;
+}
+#app.dark-mode .toc-fab {
+  background-color: #bb86fc; /* Use theme accent */
+  color: #121212;
+}
+#app.dark-mode .toc-fab:hover {
+  background-color: #a06ee1;
+}
+#app.dark-mode .toc-overlay {
+  background-color: rgba(0, 0, 0, 0.7);
+}
+#app.dark-mode .toc-container.mobile-toc-visible {
+  background-color: #2a2a2a; /* Dark background for mobile overlay */
+  border-left: none;
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.5);
+}
+#app.dark-mode .toc-close-button {
+  color: #adb5bd;
+}
+#app.dark-mode .toc-close-button:hover {
+  color: #f8f9fa;
+}
+
+
+/* Markdown content styles (:deep) */
 .wiki-content :deep(h1),
 .wiki-content :deep(h2),
 .wiki-content :deep(h3),
@@ -197,7 +387,7 @@ watch(() => route.path, (newPath) => {
   margin-top: 1.5em;
   margin-bottom: 0.5em;
   font-weight: 600;
-  scroll-margin-top: 80px; /* Add top margin for scroll target */
+  scroll-margin-top: 80px; /* Add top margin for scroll target (adjust for fixed header) */
 }
 .wiki-content :deep(h1) { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
 .wiki-content :deep(h2) { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
@@ -205,18 +395,18 @@ watch(() => route.path, (newPath) => {
 .wiki-content :deep(p) { margin-bottom: 1em; }
 .wiki-content :deep(ul), .wiki-content :deep(ol) { margin-bottom: 1em; padding-left: 2em; }
 .wiki-content :deep(li) { margin-bottom: 0.5em; }
-.wiki-content :deep(code) { background-color: #f8f8f8; padding: 0.2em 0.4em; border-radius: 3px; font-family: 'Courier New', Courier, monospace; font-size: 0.9em;}
+.wiki-content :deep(code:not(pre code)) { background-color: #f8f8f8; padding: 0.2em 0.4em; border-radius: 3px; font-family: 'Courier New', Courier, monospace; font-size: 0.9em;}
 .wiki-content :deep(pre) { background-color: #f8f8f8; padding: 1em; border-radius: 5px; overflow-x: auto; margin-bottom: 1em;}
-.wiki-content :deep(pre code) { padding: 0; background-color: transparent; border-radius: 0; font-size: 1em; }
+.wiki-content :deep(pre code) { padding: 0; background-color: transparent; border-radius: 0; font-size: 1em; white-space: pre; }
 .wiki-content :deep(blockquote) { border-left: 4px solid #eee; padding-left: 1em; margin-left: 0; color: #666; margin-bottom: 1em;}
-.wiki-content :deep(table) { border-collapse: collapse; width: 100%; margin-bottom: 1em; display: block; overflow-x: auto; /* Ensure table scrolls horizontally if needed */ }
+.wiki-content :deep(table) { border-collapse: collapse; width: 100%; margin-bottom: 1em; display: block; overflow-x: auto; }
 .wiki-content :deep(th), .wiki-content :deep(td) { border: 1px solid #ddd; padding: 8px; text-align: left; }
 .wiki-content :deep(th) { background-color: #f2f2f2; }
-.wiki-content :deep(img) { max-width: 100%; height: auto; } /* Responsive images */
-.wiki-content :deep(hr) { border: none; border-top: 1px solid #eee; margin: 1em 0; } /* Horizontal rule style */
+.wiki-content :deep(img) { max-width: 100%; height: auto; }
+.wiki-content :deep(hr) { border: none; border-top: 1px solid #eee; margin: 1em 0; }
 
 /* Dark mode Markdown styles */
-#app.dark-mode .wiki-content :deep(code) { background-color: #3a3a3a; color: #e0e0e0; }
+#app.dark-mode .wiki-content :deep(code:not(pre code)) { background-color: #3a3a3a; color: #e0e0e0; }
 #app.dark-mode .wiki-content :deep(pre) { background-color: #2a2a2a; }
 #app.dark-mode .wiki-content :deep(blockquote) { border-left-color: #444; color: #aaa; }
 #app.dark-mode .wiki-content :deep(th), #app.dark-mode .wiki-content :deep(td) { border-color: #444; }
@@ -225,27 +415,73 @@ watch(() => route.path, (newPath) => {
 #app.dark-mode .wiki-content :deep(hr) { border-top-color: #444; }
 
 
-/* Responsive adjustments */
+/* Responsive adjustments - Define base mobile TOC state here */
 @media (max-width: 992px) {
   .wiki-page-container {
-    flex-direction: column;
+    flex-direction: column; /* Keep content taking full width */
+    gap: 0; /* Remove gap on mobile */
   }
+
+  /* Base styles for TOC on mobile - Hidden by default */
   .toc-container {
-    width: 100%;
-    position: static;
-    height: auto;
-    max-height: 300px;
-    border-left: none;
-    border-top: 1px solid #e9ecef;
-    padding-left: 0;
-    margin-top: 20px;
-    padding-top: 15px;
-     #app.dark-mode & {
-       border-top: 1px solid #3a3a3a;
-    }
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 80vw; 
+    max-width: 300px; 
+    height: 100vh;
+    background-color: #ffffff;
+    box-shadow: -2px 0 8px rgba(0, 0, 0, 0.15);
+    z-index: 1100; 
+    padding: 20px;
+    padding-top: 50px; 
+    overflow-y: auto; 
+    box-sizing: border-box;
+    border-left: none; /* Ensure no desktop border remains */
+    max-height: 100vh;
+    align-self: auto;
+    
+    /* --- Animation --- */
+    transform: translateX(100%); /* Start off-screen right */
+    visibility: hidden; /* Start hidden and not interactable */
+    /* Apply transition to the transform property */
+    transition: transform 0.3s ease-in-out;
+    /* Add a small delay to visibility change AFTER transform starts/ends */
+    transition-property: transform, visibility; 
+    transition-duration: 0.3s, 0s; /* Duration for transform, instant for visibility */
+    transition-delay: 0s, 0.3s; /* Delay visibility change until transform ends (when hiding) */
   }
+
+  /* State when mobile TOC is visible (slid in) */
+  .toc-container.mobile-toc-visible {
+      transform: translateX(0); /* Slide in */
+      visibility: visible; /* Make visible and interactable */
+      /* Adjust transition delay for visibility when showing */
+      transition-delay: 0s, 0s; 
+  }
+
   .wiki-content {
-     padding: 15px;
+     /* Padding already handled by parent main-content */
+  }
+}
+
+/* Styles for Dark Mode Mobile TOC */
+#app.dark-mode {
+  @media (max-width: 992px) {
+    .toc-overlay {
+       background-color: rgba(0, 0, 0, 0.7); /* Darker overlay */
+    }
+    .toc-container {
+      background-color: #2a2a2a;
+      box-shadow: -2px 0 8px rgba(0, 0, 0, 0.5);
+    }
+    .toc-close-button {
+      color: #adb5bd;
+    }
+    .toc-close-button:hover {
+      color: #f8f9fa;
+    }
   }
 }
 </style>

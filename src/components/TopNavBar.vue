@@ -450,7 +450,7 @@ onUnmounted(() => {
 
 .nav-link {
   text-decoration: none;
-  color: #007bff;
+  color: #ec4319;
   font-size: 1em;
   padding: 5px 0;
   border-bottom: 2px solid transparent;
@@ -460,8 +460,8 @@ onUnmounted(() => {
 
 .nav-link:hover,
 .nav-link.router-link-exact-active {
-  color: #0056b3;
-  border-bottom: 2px solid #0056b3;
+  color: #ec4319;
+  border-bottom: 2px solid #ec4319;
 }
 
 /* --- Search Styles --- */
@@ -807,12 +807,12 @@ onUnmounted(() => {
 }
 .mobile-nav-dropdown .nav-link:hover {
     background-color: #f0f0f0;
-    color: #0056b3;
+    color: #ec4319;
     border-bottom: none;
 }
 .mobile-nav-dropdown .nav-link.router-link-exact-active {
     font-weight: bold;
-    color: #0056b3;
+    color: #ec4319;
     border-bottom: none;
 }
 
