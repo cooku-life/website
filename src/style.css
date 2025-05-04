@@ -15,11 +15,11 @@
 
 a {
   font-weight: 500;
-  color: #646cff;
+  color: #ec4319;
   text-decoration: inherit;
 }
 a:hover {
-  color: #535bf2;
+  color: #ec4319;
 }
 
 body {
@@ -47,7 +47,7 @@ button {
   transition: border-color 0.25s;
 }
 button:hover {
-  border-color: #646cff;
+  border-color: #ec4319;
 }
 button:focus,
 button:focus-visible {
@@ -65,7 +65,7 @@ button:focus-visible {
     background-color: #ffffff;
   }
   a:hover {
-    color: #747bff;
+    color: #ec4319;
   }
   button {
     background-color: #f9f9f9;
@@ -83,9 +83,10 @@ button:focus-visible {
   
   /* 只对WikiPage内容区域的图片应用缩放规则 */
   .wiki-content img {
-    max-width: 50vw !important;
-    height: auto !important;
-    width: auto !important;
+    max-width: 50vw !important;  /* 最大宽度限制 */
+    max-height: 50vh !important; /* 新增：最大高度限制 */
+    height: auto !important;     /* 保持宽高比 */
+    width: auto !important;      /* 允许宽度根据高度调整 */
   }
   
   /* 只针对WikiPage内容区域的容器中的图片 */
@@ -96,7 +97,8 @@ button:focus-visible {
   .wiki-content figure img, 
   .wiki-content .content img {
     max-width: 50vw !important;
-    width: auto !important;
-    height: auto !important;
+    /* height 和 width 会继承自 .wiki-content img */
+    /* width: auto !important; */
+    /* height: auto !important; */
   }
 }

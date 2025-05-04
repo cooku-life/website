@@ -2,9 +2,9 @@
   "siteTitle": "Cook Your Life",
   "logoSrc": "/logo.png",
   "navLinks": [
-    { "text": "Github", "url": "/" },
-    { "text": "加入社群", "url": "/about" },
-    { "text": "内容投稿", "url": "/contact" } 
+    { "text": "主页", "url": "/" },
+    { "text": "Github", "url": "https://github.com/cooku-life" },
+    { "text": "内容投稿&加入社群", "url": "/contact" }
   ],
-  "footerText": "© 2025 Cook Your Life. 保留所有权利."
+  "footerText": "© 2025 Cook Your Life. 本站所有内容遵循 GPL v3 许可证."
 }

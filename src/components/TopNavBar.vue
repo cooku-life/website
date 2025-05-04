@@ -45,9 +45,16 @@
 
       <!-- Desktop Nav Links -->
       <nav v-if="!isMobileView" class="nav-links">
-        <router-link v-for="link in navLinks" :key="link.url" :to="link.url" class="nav-link">
-          {{ link.text }}
-        </router-link>
+        <template v-for="link in navLinks" :key="link.url">
+          <!-- 内部链接使用 router-link -->
+          <router-link v-if="isInternalLink(link.url)" :to="link.url" class="nav-link">
+            {{ link.text }}
+          </router-link>
+          <!-- 外部链接使用 a 标签 -->
+          <a v-else :href="link.url" target="_blank" rel="noopener noreferrer" class="nav-link external-link">
+            {{ link.text }}
+          </a>
+        </template>
       </nav>
 
        <!-- Mobile Nav Links Dropdown Toggle -->
@@ -58,9 +65,16 @@
          <!-- Mobile Nav Links Dropdown - Wrapped with transition -->
          <transition name="nav-links-dropdown-anim">
            <nav v-show="isMobileNavLinksDropdownOpen" class="mobile-nav-dropdown" @click="closeMobileNavLinksDropdownOnClickInside">
-             <router-link v-for="link in navLinks" :key="link.url" :to="link.url" class="nav-link">
-               {{ link.text }}
-             </router-link>
+             <template v-for="link in navLinks" :key="link.url">
+               <!-- 内部链接使用 router-link -->
+               <router-link v-if="isInternalLink(link.url)" :to="link.url" class="nav-link">
+                 {{ link.text }}
+               </router-link>
+               <!-- 外部链接使用 a 标签 -->
+               <a v-else :href="link.url" target="_blank" rel="noopener noreferrer" class="nav-link external-link">
+                 {{ link.text }}
+               </a>
+             </template>
            </nav>
          </transition>
        </div>
@@ -143,6 +157,12 @@ const emitToggleDarkMode = () => {
 
 const emitToggleMenu = () => {
   emit('toggle-menu');
+};
+
+// 判断链接是内部链接还是外部链接
+const isInternalLink = (url) => {
+  // 如果链接以/开头或是相对路径则为内部链接
+  return url.startsWith('/') || (!url.startsWith('http://') && !url.startsWith('https://'));
 };
 
 // --- Search State ---
@@ -456,6 +476,26 @@ onUnmounted(() => {
   border-bottom: 2px solid transparent;
   transition: color 0.3s ease, border-bottom-color 0.3s ease;
   white-space: nowrap;
+}
+
+.nav-link.external-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.nav-link.external-link::after {
+  content: "";
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23ec4319' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'%3E%3C/path%3E%3Cpolyline points='15 3 21 3 21 9'%3E%3C/polyline%3E%3Cline x1='10' y1='14' x2='21' y2='3'%3E%3C/line%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
+#app.dark-mode .nav-link.external-link::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'%3E%3C/path%3E%3Cpolyline points='15 3 21 3 21 9'%3E%3C/polyline%3E%3Cline x1='10' y1='14' x2='21' y2='3'%3E%3C/line%3E%3C/svg%3E");
 }
 
 .nav-link:hover,

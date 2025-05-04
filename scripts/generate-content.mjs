@@ -3,6 +3,7 @@ import fs from 'fs-extra';
 import path from 'path';
 import { Marked } from 'marked';
 import { gfmHeadingId, getHeadingList, resetHeadings } from 'marked-gfm-heading-id';
+import yaml from 'js-yaml';
 
 const docsDir = path.resolve('docs');
 const outputDir = path.resolve('src/generated');
@@ -17,6 +18,21 @@ marked.use(gfmHeadingId());
 const getTitleFromMd = (content, defaultName) => {
   const match = content.match(/^#\s+(.*)/m);
   return match ? match[1] : defaultName;
+};
+
+// Function to parse frontmatter
+const parseFrontmatter = (content) => {
+  const frontmatterRegex = /^---\s*\n([\s\S]*?)\n---\s*\n?/;
+  const match = content.match(frontmatterRegex);
+  if (match && match[1]) {
+    try {
+      return yaml.load(match[1]);
+    } catch (e) {
+      console.warn(`Could not parse frontmatter for a file: ${e.message}`);
+      return {};
+    }
+  }
+  return {};
 };
 
 // Function to generate TOC using marked-gfm-heading-id
@@ -57,11 +73,26 @@ async function generateContent() {
       const finalRoutePath = routePath.endsWith('/') && routePath.length > 1 ? routePath.slice(0, -1) : (routePath === '/index' ? '/' : routePath); // Handle index and trailing slash
 
 
-      // Generate HTML and TOC
-      const { html, toc } = generateToc(content);
+      // --- START HIDE CHECK ---
+      const frontmatter = parseFrontmatter(content);
+      const isHidden = frontmatter && frontmatter.hide === true;
+      // --- END HIDE CHECK ---
 
-      // Store page data
+
+      // Generate HTML and TOC (always do this for content.js)
+      const { html, toc } = generateToc(content.replace(/^---\s*\n([\s\S]*?)\n---\s*\n?/, '')); // Remove frontmatter before generating HTML
+
+      // Store page data (always store, even if hidden from menu)
       pagesData[finalRoutePath] = { html, toc };
+
+      // --- START SKIP IF HIDDEN ---
+      // Skip adding to menu if hide: true
+      if (isHidden) {
+          console.log(`Skipping menu entry for hidden file: ${file}`);
+          continue; // Skip the rest of the loop for this file
+      }
+      // --- END SKIP IF HIDDEN ---
+
 
       // Build Menu Structure
       const parts = file.replace(/\\/g, '/').split('/').filter(p => p);

@@ -176,7 +176,6 @@ body.dark-mode-body {
 
 .main-content {
   flex: 1;
-  overflow-y: auto;
   padding: 20px;
   box-sizing: border-box;
   text-align: left;
@@ -236,7 +235,7 @@ body.dark-mode-body {
 }
 
 #app.dark-mode a:hover {
-  color: #9e6cdc;
+  color: #ec4319;
 }
 
 /* Adjust heading colors */

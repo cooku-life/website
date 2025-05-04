@@ -26,9 +26,18 @@
       >
         <button v-if="isMobileView" class="toc-close-button" @click="closeMobileToc" aria-label="关闭目录">&times;</button>
         <h4>目录</h4>
-        <ul>
-          <li v-for="item in tocItems" :key="item.id" :class="`toc-level-${item.level}`">
-            <a :href="`#${item.id}`" @click.prevent="handleTocLinkClick(item.id)">{{ item.text }}</a>
+        <ul ref="tocListRef" style="position: relative;">
+          <div class="toc-highlighter" ref="tocHighlighterRef"></div>
+          <li 
+            v-for="item in tocItems" 
+            :key="item.id" 
+            :data-toc-id="item.id"
+            :class="{ 
+              'active-toc-item': item.id === activeTocId, 
+              [`toc-level-${item.level}`]: true 
+            }"
+          >
+            <a :href="`#${item.id}`" @click.prevent="handleTocLinkClick(item.id)" v-html="item.text"></a>
           </li>
         </ul>
       </aside>
@@ -113,6 +122,10 @@ const loading = ref(true)
 const error = ref(null)
 const isMobileView = ref(window.innerWidth <= 992) // Use 992px breakpoint consistent with CSS
 const isMobileTocVisible = ref(false)
+const activeTocId = ref(null) // Added for active TOC item
+const tocListRef = ref(null) // Ref for the TOC ul element
+const tocHighlighterRef = ref(null) // Ref for the highlighter div
+let observer = null // IntersectionObserver instance
 
 // --- Custom Lightbox State ---
 const isLightboxVisible = ref(false)
@@ -142,21 +155,20 @@ const closeMobileToc = () => {
 }
 
 const scrollToHeader = (id) => {
-  const container = document.querySelector('.main-content') || document.documentElement; // Use main scroll container
-  const element = document.getElementById(id); // Use getElementById for directness
+  const container = document.documentElement; // Use the main document element for scrolling
+  const element = document.getElementById(id);
   if (element) {
-    const offset = 80; // Adjust for fixed header height
-    const bodyRect = document.body.getBoundingClientRect().top;
-    const elementRect = element.getBoundingClientRect().top;
-    const elementPosition = elementRect - bodyRect;
-    const offsetPosition = elementPosition - offset;
+    const offset = 80; // Height of the fixed header
+    const elementRect = element.getBoundingClientRect();
+    // Calculate the target scroll position: current scroll + element's top relative to viewport - offset
+    const targetScrollTop = container.scrollTop + elementRect.top - offset;
+
+    console.log(`Scrolling to element #${id}: elementTop=${elementRect.top}, currentScrollTop=${container.scrollTop}, targetScrollTop=${targetScrollTop}`); // Debugging
 
     container.scrollTo({
-      top: offsetPosition,
+      top: targetScrollTop,
       behavior: 'smooth'
     });
-    // Optionally update hash without triggering vue-router reload or default jump
-    // window.history.pushState(null, null, `#${id}`); 
   } else {
     console.warn(`TOC scroll target not found: #${id}`);
   }
@@ -409,7 +421,115 @@ const applyCodeHighlight = () => {
   });
 };
 
+// --- Update Highlighter Position --- 
+const updateHighlighterPosition = () => {
+  if (!activeTocId.value || !tocListRef.value || !tocHighlighterRef.value) {
+    if (tocHighlighterRef.value) tocHighlighterRef.value.style.opacity = '0';
+    return;
+  }
+
+  // Find the active link element within the list
+  // Note: We need to query the DOM directly here as we don't have refs for each <li> or <a>
+  const activeLink = tocListRef.value.querySelector(`li[data-toc-id="${activeTocId.value}"] > a`); 
+
+  if (activeLink) {
+    const linkRect = activeLink.getBoundingClientRect();
+    const listRect = tocListRef.value.getBoundingClientRect();
+
+    // Add padding visually by adjusting dimensions and position
+    const padding = 5; 
+    const top = activeLink.offsetTop - padding;
+    const height = linkRect.height + (padding * 2);
+    const width = linkRect.width + (padding * 2); 
+    const left = activeLink.offsetLeft - padding; 
+
+    tocHighlighterRef.value.style.top = `${top}px`;
+    tocHighlighterRef.value.style.height = `${height}px`;
+    tocHighlighterRef.value.style.width = `${width}px`; 
+    tocHighlighterRef.value.style.left = `${left}px`;   
+    tocHighlighterRef.value.style.opacity = '1';
+  } else {
+    // If link not found (e.g., during initial render or quick scroll), hide highlighter
+    tocHighlighterRef.value.style.opacity = '0';
+  }
+};
+
+// Watch for changes in activeTocId and update highlighter
+watch(activeTocId, async (newId, oldId) => {
+    // Wait for potential DOM updates if needed, especially on initial load
+    await nextTick(); 
+    updateHighlighterPosition();
+});
+
+// --- Intersection Observer Setup ---
+const setupIntersectionObserver = () => {
+  // Disconnect previous observer if exists
+  if (observer) {
+    observer.disconnect();
+    observer = null;
+  }
+
+  if (!contentRef.value) return;
+
+  const headings = contentRef.value.querySelectorAll('h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]');
+  if (headings.length === 0) return;
+
+  const observerOptions = {
+    rootMargin: '-80px 0px -60% 0px', // Adjust top margin for header, bottom to prioritize top headings
+    threshold: 1.0 // Trigger when fully visible (can be adjusted)
+  };
+
+  // Keep track of the topmost visible heading ID
+  let currentTopHeadingId = null;
+
+  observer = new IntersectionObserver((entries) => {
+    let topEntry = null;
+    let minTop = Infinity;
+
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+         const rect = entry.target.getBoundingClientRect();
+          if (rect.top >= 80 && rect.top < minTop) { // Consider headings below the fixed header
+              minTop = rect.top;
+              topEntry = entry;
+          }
+      }
+    });
+
+    if (topEntry) {
+        activeTocId.value = topEntry.target.id;
+    } else {
+        // If no heading is fully visible in the designated area,
+        // find the last heading that *started* intersecting (above the current view)
+        // This handles cases where you scroll past a section quickly
+        const intersectingEntries = entries.filter(e => e.boundingClientRect.top < 80);
+        if (intersectingEntries.length > 0) {
+            // Sort by distance from top (closest first)
+            intersectingEntries.sort((a, b) => b.boundingClientRect.top - a.boundingClientRect.top);
+            activeTocId.value = intersectingEntries[0].target.id;
+        }
+    }
+  }, observerOptions);
+
+  headings.forEach(heading => observer.observe(heading));
+
+  // Set initial active ID if possible
+  if (tocItems.value.length > 0) {
+      activeTocId.value = tocItems.value[0].id;
+  }
+
+  // Initial position update after setup
+   nextTick(updateHighlighterPosition);
+};
+
 const loadContent = async (path) => {
+  // Disconnect observer before loading new content
+  if (observer) {
+    observer.disconnect();
+    observer = null;
+  }
+  activeTocId.value = null; // Reset active ID
+
   // Remove previous listener if contentRef exists from a previous load
   if (contentRef.value) {
     console.log('Removing previous click listener before loading new content.');
@@ -468,6 +588,18 @@ const loadContent = async (path) => {
     addCopyButtonsToCodeBlocks();
     // 应用代码高亮
     applyCodeHighlight();
+    // Setup observer *after* content is rendered
+    setupIntersectionObserver(); 
+    // Add click listener *after* content is rendered
+    if (contentRef.value) {
+      contentRef.value.addEventListener('click', handleContentClick);
+      console.log('Click listener attached after loading finished.');
+    } else {
+      console.error('contentRef is STILL null after loading finished and nextTick. Check template structure and v-if conditions.');
+    }
+    // Update highlighter position after initial content load
+    await nextTick();
+    updateHighlighterPosition();
   }
 }
 
@@ -475,41 +607,17 @@ const loadContent = async (path) => {
 onMounted(() => {
   window.addEventListener('resize', handleResize);
   loadContent(route.path);
+  // Update highlighter on resize as well
+  window.addEventListener('resize', updateHighlighterPosition);
 })
-
-// Watch the loading state to manage the listener
-watch(loading, async (isLoading) => {
-  console.log(`Loading state changed: ${isLoading}`);
-  if (!isLoading && !error.value) {
-    // Loading just finished successfully
-    console.log('Loading finished. Waiting for nextTick to attach listener...');
-    await nextTick(); // Wait for v-if to render the content div
-    console.log('nextTick after loading finished. contentRef:', contentRef.value);
-    if (contentRef.value) {
-      // Remove previous listener just in case (e.g., rapid navigation)
-      contentRef.value.removeEventListener('click', handleContentClick);
-      // Add new listener
-      contentRef.value.addEventListener('click', handleContentClick);
-      console.log('Click listener attached after loading finished.');
-      
-      // 添加代码块复制按钮
-      addCopyButtonsToCodeBlocks();
-      // 应用代码高亮
-      applyCodeHighlight();
-    } else {
-      console.error('contentRef is STILL null after loading finished and nextTick. Check template structure and v-if conditions.');
-    }
-  } else if (isLoading) {
-    // Loading started, remove listener if element exists from previous render
-    if (contentRef.value) {
-      console.log('Loading started, removing existing listener.');
-      contentRef.value.removeEventListener('click', handleContentClick);
-    }
-  }
-});
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize);
+  window.removeEventListener('resize', updateHighlighterPosition); // Remove resize listener for highlighter
+  // Disconnect the observer
+  if (observer) {
+    observer.disconnect();
+  }
   // Clean up lightbox listener
   if (contentRef.value) {
     console.log('Removing click listener from contentRef on unmount.');
@@ -598,9 +706,11 @@ watch(() => route.path, (newPath) => {
 
 .toc-container a {
   text-decoration: none;
-  color: #337ab7;
+  color: #ec4319;
   font-size: 0.9em;
   transition: color 0.2s ease;
+  position: relative; /* Ensure links are positioned */
+  z-index: 1; /* Ensure links are above the highlighter */
 }
 
 .toc-container a:hover {
@@ -614,6 +724,25 @@ watch(() => route.path, (newPath) => {
 .toc-level-4 { padding-left: 45px; }
 .toc-level-5 { padding-left: 60px; }
 .toc-level-6 { padding-left: 75px; }
+
+/* Active TOC item styling - Now primarily handles text color */
+.toc-container li.active-toc-item > a {
+  color: #ffffff !important; /* White text when highlighter is behind, ensure it overrides dark mode defaults */
+  /* Remove background, padding, margin adjustments from previous step */
+}
+
+/* Styles for the moving highlighter */
+.toc-highlighter {
+  position: absolute;
+  /* Remove fixed left/right */
+  background-color: #ec4319;
+  border-radius: 4px;
+  z-index: 0; /* Behind the link text */
+  opacity: 0; /* Initially hidden until positioned */
+  transition: top 0.25s ease-in-out, height 0.25s ease-in-out, 
+              width 0.25s ease-in-out, left 0.25s ease-in-out, /* Add width and left */
+              opacity 0.2s ease-in-out; 
+}
 
 /* --- Mobile TOC Styles --- */
 
@@ -712,13 +841,13 @@ watch(() => route.path, (newPath) => {
   color: #e0e0e0;
 }
 #app.dark-mode .toc-container a {
-  color: #bb86fc; /* Adjust link color */
+  color: #ec4319; /* Adjust link color */
 }
 #app.dark-mode .toc-container a:hover {
     color: #d1b3ff;
 }
 #app.dark-mode .toc-fab {
-  background-color: #bb86fc; /* Use theme accent */
+  background-color: #ec4319; /* Use theme accent */
   color: #121212;
 }
 #app.dark-mode .toc-fab:hover {
