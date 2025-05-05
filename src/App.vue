@@ -8,6 +8,7 @@
       @toggle-dark-mode="toggleDarkMode"
       @toggle-menu="toggleMobileNav"  
       :is-mobile-view="isMobileView" 
+      :show-beta-tag="config.showBetaTag"
       class="top-nav-container" 
     />
     <div v-if="isMobileNavOpen && isMobileView" class="mobile-nav-overlay" @click="closeMobileNav"></div>
@@ -38,7 +39,8 @@ const config = ref({
   siteTitle: 'PureWiki', 
   footerText: '© 2024 PureWiki. 保留所有权利.',
   logoSrc: '',
-  navLinks: []
+  navLinks: [],
+  showBetaTag: false
 })
 const route = useRoute()
 const isDarkMode = ref(false)

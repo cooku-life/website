@@ -9,6 +9,7 @@
       <div class="logo-container">
         <img v-if="logoSrc" :src="logoSrc" alt="Logo" class="logo-img" />
         <span class="site-title">{{ siteTitle }}</span>
+        <span v-if="showBetaTag" class="beta-tag">Beta</span>
       </div>
     </div>
 
@@ -144,6 +145,10 @@ const props = defineProps({
     required: true
   },
   isMobileView: {
+    type: Boolean,
+    default: false
+  },
+  showBetaTag: {
     type: Boolean,
     default: false
   }
@@ -460,6 +465,20 @@ onUnmounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 150px; /* Limit title width if needed */
+}
+
+.beta-tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 6px;
+  font-size: 0.7em;
+  font-weight: bold;
+  color: #ec4319;
+  border: 1px solid #ec4319;
+  border-radius: 4px;
+  line-height: 1;
+  vertical-align: middle; /* Align with title */
+  background-color: transparent;
 }
 
 .nav-links {

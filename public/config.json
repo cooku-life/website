@@ -1,6 +1,7 @@
 {
   "siteTitle": "Cook Your Life",
   "logoSrc": "/logo.png",
+  "showBetaTag": true,
   "navLinks": [
     { "text": "主页", "url": "/" },
     { "text": "Github", "url": "https://github.com/cooku-life" },
