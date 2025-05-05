@@ -94,6 +94,64 @@ const getGitInfo = (filePath) => {
   };
 };
 
+// --- Function to get Changelog Data ---
+const getChangelogData = (repoPath, limit = 30) => {
+  const changelog = [];
+  const commitsByDate = {};
+
+  try {
+    // Get recent commits: hash, author date (YYYY-MM-DD), subject/message
+    // Limit the number of commits fetched for performance
+    const command = `git log --pretty=format:"%H|||%ad|||%s" --date=format:'%Y-%m-%d' -n ${limit}`;
+    const output = execSync(command, { cwd: repoPath }).toString().trim();
+    const lines = output.split('\n');
+
+    for (const line of lines) {
+      if (!line) continue;
+      const parts = line.split('|||');
+      if (parts.length < 3) continue; // Skip lines that don't parse correctly
+
+      const [hash, date, message] = parts;
+      const lowerCaseMessage = message.toLowerCase();
+
+      // Filter out merge commits and common CI commits
+      if (lowerCaseMessage.startsWith('merge pull request') ||
+          lowerCaseMessage.startsWith('merge branch') ||
+          lowerCaseMessage.includes('update main.yml') || // Example filter for specific CI commits
+          lowerCaseMessage.includes('create main.yml')  ) {
+        continue;
+      }
+
+      if (!commitsByDate[date]) {
+        commitsByDate[date] = [];
+      }
+
+      // Limit message length if needed
+      const shortMessage = message.length > 100 ? message.substring(0, 97) + '...' : message;
+
+      commitsByDate[date].push({
+        hash: hash.substring(0, 7), // Short hash
+        message: shortMessage,
+      });
+    }
+
+    // Convert grouped object to sorted array
+    const sortedDates = Object.keys(commitsByDate).sort((a, b) => new Date(b) - new Date(a));
+    for (const date of sortedDates) {
+      changelog.push({
+        date: date,
+        commits: commitsByDate[date],
+      });
+    }
+
+  } catch (error) {
+    console.warn(`Could not get Changelog data from Git: ${error.message}`);
+    // Optionally return empty or partial data
+  }
+
+  return changelog;
+};
+
 // --- Main Generation Logic ---
 async function generateContent() {
   console.log('Generating content from Markdown files...');
@@ -126,6 +184,15 @@ async function generateContent() {
       // Get Git Info (includes all contributors now)
       const { lastAuthorName, lastCommitHash, lastCommitTimestamp, contributors } = getGitInfo(filePath);
 
+      // --- Get Changelog Data for Index Page ---
+      let changelog = [];
+      if (finalRoutePath === '/') {
+          console.log("Fetching changelog data for index page...");
+          changelog = getChangelogData(docsDir); // Fetch changelog for the repo
+      }
+      // --- End Changelog ---
+
+
       // Store page data (always store, even if hidden from menu)
       pagesData[finalRoutePath] = {
           html,
@@ -133,7 +200,8 @@ async function generateContent() {
           lastAuthorName, // Keep last commit info as well
           lastCommitHash,
           lastCommitTimestamp,
-          contributors // Add the list of unique contributors
+          contributors, // Add the list of unique contributors
+          ...(finalRoutePath === '/' && { changelog }) // Conditionally add changelog for index page
       };
 
       // --- START SKIP IF HIDDEN ---

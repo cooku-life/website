@@ -5,8 +5,8 @@
     <template v-else>
       <!-- New Wrapper for Content and Contributors -->
       <div class="main-content-wrapper">
-        <!-- Contributor Info - Now shows a list -->
-        <div v-if="contributorsList.length > 0" class="contributor-info">
+        <!-- Contributor Info -->
+        <div v-if="contributorsList.length > 0 && !isIndexPage" class="contributor-info">
           <span class="contributor-label">本文贡献者:</span>
           <span v-for="(contributor, index) in contributorsList" :key="contributor" class="contributor-name">
             <!-- Add link if needed, for now just text -->
@@ -18,25 +18,29 @@
 
         <!-- 文章内容区域 -->
         <div class="wiki-content" ref="contentRef" v-html="renderedMarkdown"></div>
+
+        <!-- Changelog for Index Page -->
+        <Changelog v-show="isIndexPage" :logs="changelogData" id="changelog-section" />
+
       </div>
       <!-- End New Wrapper -->
 
-      <!-- Mobile FAB for TOC -->
+      <!-- TOC FAB -->
       <button v-if="tocItems.length > 0 && isMobileView && !isMobileTocVisible" class="toc-fab" @click="toggleMobileToc" aria-label="展开目录">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
       </button>
 
       <!-- TOC Overlay for Mobile -->
-      <div 
-        v-if="isMobileView" 
-        class="toc-overlay" 
-        :class="{ 'is-visible': isMobileTocVisible }" 
+      <div
+        v-if="isMobileView"
+        class="toc-overlay"
+        :class="{ 'is-visible': isMobileTocVisible }"
         @click="closeMobileToc"
       ></div>
 
-      <!-- TOC Container (Desktop Sticky or Mobile Overlay) -->
-      <aside 
-        class="toc-container" 
+      <!-- TOC Container -->
+      <aside
+        class="toc-container"
         :class="{ 'mobile-toc-visible': isMobileTocVisible && isMobileView }"
         v-if="tocItems.length > 0 && (!isMobileView || isMobileTocVisible)"
       >
@@ -59,7 +63,7 @@
       </aside>
     </template>
 
-    <!-- Custom Lightbox Overlay -->
+    <!-- Custom Lightbox -->
     <transition name="lightbox-fade">
       <div v-if="isLightboxVisible" class="custom-lightbox-overlay" @click="handleOverlayClick"> 
         <div class="custom-lightbox-content">
@@ -129,6 +133,8 @@ import 'highlight.js/lib/languages/bash'
 import 'highlight.js/lib/languages/css'
 import 'highlight.js/lib/languages/xml'
 import 'highlight.js/lib/languages/markdown'
+// 导入新组件
+import Changelog from './Changelog.vue';
 
 const route = useRoute()
 const renderedMarkdown = ref('')
@@ -148,6 +154,8 @@ const lastAuthorName = ref(null)
 const lastCommitHash = ref(null)
 const lastCommitTimestamp = ref(null)
 const contributorsList = ref([]) // Added for the list of contributors
+const isIndexPage = ref(false);
+const changelogData = ref([]);
 // --- End Contributor Info State ---
 
 // --- Custom Lightbox State ---
@@ -244,10 +252,11 @@ const scrollToHeader = (id) => {
   }
 };
 
-const handleTocLinkClick = (id) => {
+const handleTocLinkClick = (id) => { // 移除 async
+  // 直接尝试滚动
   scrollToHeader(id);
 
-  // Schedule a re-calculation after a short delay to allow scroll animation to progress
+  // 更新高亮位置的延迟逻辑保持不变
   setTimeout(() => {
      if(activeTocId.value === id) { // Only update if the ID hasn't changed again quickly
         console.log(`Updating highlighter after click timeout for ID: ${id}`); // Debug log
@@ -568,146 +577,226 @@ const setupIntersectionObserver = () => {
 
   if (!contentRef.value) return;
 
-  const headings = contentRef.value.querySelectorAll('h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]');
-  if (headings.length === 0) return;
+  // Select headings within the main content
+  const headings = Array.from(contentRef.value.querySelectorAll('h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]'));
+
+  // Find the Changelog element if it's the index page
+  let changelogElement = null;
+  if (isIndexPage.value) {
+      // Use nextTick to ensure the element exists after v-if renders
+      nextTick(() => {
+          changelogElement = document.getElementById('changelog-section');
+          if (changelogElement && observer) { // Check if observer is already created
+              observer.observe(changelogElement);
+              console.log("Observer is now watching #changelog-section");
+          } else if (!changelogElement) {
+              console.warn("#changelog-section element not found for observer.");
+          }
+      });
+  }
+
+  // Combine headings and potentially the changelog element for observation setup
+  const elementsToObserve = [...headings];
+  // Note: We will observe the changelogElement inside nextTick if found
+
+  if (elementsToObserve.length === 0 && !changelogElement) { // Check if there's anything to observe initially
+      console.log("No headings or changelog section found to observe initially.");
+      // Optionally hide highlighter if nothing to observe
+       if(tocHighlighterRef.value) tocHighlighterRef.value.style.opacity = '0';
+      return;
+  }
 
   const observerOptions = {
-    rootMargin: '-80px 0px -60% 0px', // Adjust top margin for header, bottom to prioritize top headings
-    threshold: 1.0 // Trigger when fully visible (can be adjusted)
+    // Keep the rootMargin optimized for top headings,
+    // but allow observing elements lower down.
+    rootMargin: '-80px 0px -50% 0px', // Adjust bottom margin slightly if needed
+    threshold: 0 // Trigger even if partially visible
   };
 
-  // Keep track of the topmost visible heading ID
-  let currentTopHeadingId = null;
-
   observer = new IntersectionObserver((entries) => {
-    let topEntry = null;
-    let minTop = Infinity;
+    let topVisibleHeadingEntry = null;
+    let minTopHeading = Infinity;
+    let isChangelogIntersecting = false;
+    let changelogEntry = null;
 
     entries.forEach(entry => {
-      if (entry.isIntersecting) {
-         const rect = entry.target.getBoundingClientRect();
-          if (rect.top >= 80 && rect.top < minTop) { // Consider headings below the fixed header
-              minTop = rect.top;
-              topEntry = entry;
+      // Check if it's the changelog entry
+      if (entry.target.id === 'changelog-section') {
+        changelogEntry = entry;
+        isChangelogIntersecting = entry.isIntersecting;
+      }
+      // Check if it's a heading entry
+      else if (entry.target.matches('h1, h2, h3, h4, h5, h6')) {
+          if (entry.isIntersecting) {
+              const rect = entry.target.getBoundingClientRect();
+              // Consider headings mostly below the fixed header as potentially active
+              if (rect.top >= 70 && rect.top < minTopHeading) {
+                  minTopHeading = rect.top;
+                  topVisibleHeadingEntry = entry;
+              }
           }
       }
     });
 
-    if (topEntry) {
-        activeTocId.value = topEntry.target.id;
-    } else {
-        // If no heading is fully visible in the designated area,
-        // find the last heading that *started* intersecting (above the current view)
-        // This handles cases where you scroll past a section quickly
-        const intersectingEntries = entries.filter(e => e.boundingClientRect.top < 80);
-        if (intersectingEntries.length > 0) {
-            // Sort by distance from top (closest first)
-            intersectingEntries.sort((a, b) => b.boundingClientRect.top - a.boundingClientRect.top);
-            activeTocId.value = intersectingEntries[0].target.id;
+    // --- Activation Logic ---
+    // Prioritize changelog if it's intersecting and user is near the bottom,
+    // or if no headings are actively visible near the top.
+    const scrollNearBottom = (window.innerHeight + window.scrollY) >= (document.documentElement.scrollHeight - 150); // Check if near bottom (adjust threshold 150px)
+
+    if (isChangelogIntersecting && (scrollNearBottom || !topVisibleHeadingEntry)) {
+        // Check if the active ID is already the changelog, avoid unnecessary updates
+        if (activeTocId.value !== 'changelog-section') {
+             activeTocId.value = 'changelog-section';
+             console.log("Observer activated: changelog-section");
         }
+    } else if (topVisibleHeadingEntry) {
+        // Fallback to the highest visible heading if changelog isn't active
+        if (activeTocId.value !== topVisibleHeadingEntry.target.id) {
+            activeTocId.value = topVisibleHeadingEntry.target.id;
+            console.log(`Observer activated heading: ${activeTocId.value}`);
+        }
+    } else {
+         // If nothing specific is active (e.g., scrolled past everything or way above),
+         // try finding the last heading *above* the viewport, similar to findCurrentActiveTocId
+         const headingsAbove = headings
+             .map(h => ({ el: h, rect: h.getBoundingClientRect() }))
+             .filter(item => item.rect.top < 80); // Find headings that have scrolled past the offset
+
+         if (headingsAbove.length > 0) {
+             headingsAbove.sort((a, b) => b.rect.top - a.rect.top); // Sort by closest to the top edge
+             if (activeTocId.value !== headingsAbove[0].el.id) {
+                 activeTocId.value = headingsAbove[0].el.id;
+                 console.log(`Observer fallback activated heading above: ${activeTocId.value}`);
+             }
+         } else if (tocItems.value.length > 0 && activeTocId.value !== tocItems.value[0].id) {
+             // Default to the first item if nothing else fits
+             activeTocId.value = tocItems.value[0].id;
+              console.log(`Observer fallback activated first item: ${activeTocId.value}`);
+         }
     }
+
+
   }, observerOptions);
 
-  headings.forEach(heading => observer.observe(heading));
+  // Observe all headings initially
+  headings.forEach(heading => {
+      if(heading && heading.id) { // Ensure heading and id exist
+        observer.observe(heading);
+      }
+    });
 
-  // Set initial active ID if possible
-  if (tocItems.value.length > 0) {
-      activeTocId.value = tocItems.value[0].id;
-  }
+  // Note: Changelog observation is handled inside the nextTick check above
+
+  // Set initial active ID based on initial scroll position or first item
+   const initialActiveId = findCurrentActiveTocId();
+   if (initialActiveId && activeTocId.value !== initialActiveId) {
+       activeTocId.value = initialActiveId;
+   } else if (!activeTocId.value && tocItems.value.length > 0) { // Ensure an ID is set initially if possible
+       activeTocId.value = tocItems.value[0].id;
+   }
 
   // Initial position update after setup
-   nextTick(updateHighlighterPosition);
+  nextTick(updateHighlighterPosition);
 };
 
 const loadContent = async (path) => {
-  // Disconnect observer before loading new content
+  // Disconnect observer before loading new content - MOVED TO START
   if (observer) {
     observer.disconnect();
     observer = null;
   }
   activeTocId.value = null; // Reset active ID
-  // Reset contributor info
+
+  // --- Reset states ---
   lastAuthorName.value = null;
   lastCommitHash.value = null;
   lastCommitTimestamp.value = null;
-  contributorsList.value = []; // Reset contributors list
+  contributorsList.value = [];
+  changelogData.value = [];
+  isIndexPage.value = false; // Reset index page flag *before* loading
+  renderedMarkdown.value = ''; // Clear previous markdown
+  tocItems.value = [];      // Clear previous TOC
+  loading.value = true;     // Set loading true
+  error.value = null;
+  closeMobileToc();
 
-  // Remove previous listener if contentRef exists from a previous load
+  // Remove previous listener if contentRef exists
   if (contentRef.value) {
-    console.log('Removing previous click listener before loading new content.');
     contentRef.value.removeEventListener('click', handleContentClick);
   }
 
-  loading.value = true
-  error.value = null
-  closeMobileToc(); // Close TOC when loading new content
-  await nextTick() // Ensure DOM updates before trying to load
+  await nextTick(); // Ensure DOM updates (like clearing content) happen
 
   try {
-    // Normalize path: remove trailing slash for lookup, handle root path '/'
+    // Normalize path
     const lookupPath = path.endsWith('/') && path.length > 1 ? path.slice(0, -1) : (path === '' ? '/' : path);
-
-    // Use a default path if the lookup path is empty or just '/' which corresponds to index.md
     let finalLookupPath = lookupPath || '/';
-
-    // --- DECODE THE PATH --- Needed for hash mode with non-ASCII chars
     finalLookupPath = decodeURIComponent(finalLookupPath);
-    // --- END DECODE ---
 
-    // --- DEBUGGING LOGS ---
-    // console.log("Attempting to load content for route path:", path);
-    // console.log("Using lookup key:", finalLookupPath); // Log the key before potential decode
-    // console.log("Available keys in pages:", Object.keys(pages));
-    // console.log("Complete pages object:", pages);
-    // --- END DEBUGGING LOGS ---
-
-    // console.log("Attempting lookup with key:", `"${finalLookupPath}"`); // Log the exact key
-    // console.log("Does key exist?", pages.hasOwnProperty(finalLookupPath)); // Check existence explicitly
+    // Determine if it's the index page *early*
+    isIndexPage.value = (finalLookupPath === '/');
 
     if (pages[finalLookupPath]) {
-      const { html, toc, lastAuthorName: author, lastCommitHash: hash, lastCommitTimestamp: timestamp, contributors } = pages[finalLookupPath];
-      renderedMarkdown.value = html;
-      // Set contributor info
-      lastAuthorName.value = author || null;
-      lastCommitHash.value = hash || null;
-      lastCommitTimestamp.value = timestamp || null;
-      contributorsList.value = contributors || []; // Set the list of contributors
+      const pageData = pages[finalLookupPath];
 
-      // Ensure TOC update happens after HTML is potentially rendered
-      await nextTick();
-      tocItems.value = toc || [];
+      renderedMarkdown.value = pageData.html;
+      tocItems.value = pageData.toc || [];
+      lastAuthorName.value = pageData.lastAuthorName || null;
+      lastCommitHash.value = pageData.lastCommitHash || null;
+      lastCommitTimestamp.value = pageData.lastCommitTimestamp || null;
+      contributorsList.value = pageData.contributors || [];
+
+      if (isIndexPage.value) { // Use the already set flag
+        changelogData.value = pageData.changelog || [];
+
+        const existingChangelogToc = tocItems.value.find(item => item.id === 'changelog-section');
+        if (!existingChangelogToc && changelogData.value.length > 0) { // Only add if changelog exists
+          const changelogTocItem = {
+            level: 1,
+            text: '最近更新',
+            id: 'changelog-section',
+            raw: '最近更新'
+          };
+          tocItems.value.push(changelogTocItem);
+        }
+      }
+      // No 'else' needed for isIndexPage here
 
     } else {
-      // Handle page not found in generated content
+      // Handle page not found
       renderedMarkdown.value = '<h1>页面未找到</h1><p>抱歉，无法在预生成的内容中找到您请求的页面。</p>';
       tocItems.value = [];
-      console.error(`Content not found for key: "${finalLookupPath}"`); // Log key on failure
-      error.value = '页面未找到'; // Set error message
+      error.value = '页面未找到';
+      isIndexPage.value = false; // Ensure flag is false on error
     }
   } catch (err) {
+    // Handle loading errors
     renderedMarkdown.value = '<h1>加载错误</h1><p>加载预生成内容时发生错误。</p>';
     tocItems.value = [];
-    console.error(`Error loading content for path ${path}:`, err)
-    error.value = '加载内容时出错'; // Set error message
+    error.value = '加载内容时出错';
+    isIndexPage.value = false; // Ensure flag is false on error
   } finally {
     loading.value = false;
-    // 在内容加载完成后添加复制按钮
-    await nextTick();
+    await nextTick(); // Ensure content is rendered before interacting
+
+    // Add copy buttons and highlight code
     addCopyButtonsToCodeBlocks();
-    // 应用代码高亮
     applyCodeHighlight();
-    // Setup observer *after* content is rendered
-    setupIntersectionObserver(); 
-    // Add click listener *after* content is rendered
+
+    // Add click listener for images/copy buttons
     if (contentRef.value) {
       contentRef.value.addEventListener('click', handleContentClick);
-      console.log('Click listener attached after loading finished.');
     } else {
-      console.error('contentRef is STILL null after loading finished and nextTick. Check template structure and v-if conditions.');
+      console.error('contentRef is null after loading finished. Cannot attach click listener.');
     }
-    // Update highlighter position after initial content load
-    await nextTick();
-    updateHighlighterPosition();
+
+    // Setup Intersection Observer *AFTER* content is loaded and rendered
+    // It now relies on the 'isIndexPage' flag being correctly set.
+    setupIntersectionObserver();
+
+    // Update highlighter position *AFTER* observer setup
+    await nextTick(); // Allow observer setup potentially
+    updateHighlighterPosition(); // Use the initially determined activeTocId from observer setup
   }
 }
 
@@ -810,23 +899,7 @@ const lastCommitDate = computed(() => {
 }
 
 /* Style for individual contributor names */
-.contributor-name {
-  /* Add specific styles if needed, e.g., background, border-radius */
-  /* For now, just rely on inherited styles */
-}
 
-/* Remove link styles if not using links */
-/*
-.contributor-info a {
-  color: #007bff;
-  text-decoration: none;
-  font-weight: 500;
-}
-
-.contributor-info a:hover {
-  text-decoration: underline;
-}
-*/
 
 #app.dark-mode .contributor-info {
   color: #adb5bd; /* Lighter subdued color for dark mode */
@@ -1020,9 +1093,6 @@ const lastCommitDate = computed(() => {
 
 /* --- Dark Mode Adjustments --- */
 
-#app.dark-mode .wiki-content {
-  /* Inherits dark background */
-}
 #app.dark-mode .loading-placeholder, 
 #app.dark-mode .error-message {
   color: #aaa;
@@ -1672,5 +1742,11 @@ const lastCommitDate = computed(() => {
 }
 #app.dark-mode .wiki-content :deep(tr) {
   background-color: #1e1e1e;
+}
+
+/* Styles specific to Changelog in WikiPage context if needed */
+.main-content-wrapper .changelog-container {
+  /* Add styles here if you want to override Changelog component styles specifically within WikiPage */
+  max-width: 100%; /* Ensure it doesn't overflow the wrapper */
 }
 </style>
