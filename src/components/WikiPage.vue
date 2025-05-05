@@ -818,7 +818,7 @@ const lastCommitDate = computed(() => {
 /* Remove link styles if not using links */
 /*
 .contributor-info a {
-  color: #007bff; 
+  color: #007bff;
   text-decoration: none;
   font-weight: 500;
 }
@@ -835,7 +835,7 @@ const lastCommitDate = computed(() => {
 /* Remove dark mode link styles if not using links */
 /*
 #app.dark-mode .contributor-info a {
-  color: #80bdff; 
+  color: #80bdff;
 }
 */
 
