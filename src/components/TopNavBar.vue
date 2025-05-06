@@ -6,11 +6,13 @@
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
       </button>
 
-      <div class="logo-container">
-        <img v-if="logoSrc" :src="logoSrc" alt="Logo" class="logo-img" />
-        <span class="site-title">{{ siteTitle }}</span>
-        <span v-if="showBetaTag" class="beta-tag">Beta</span>
-      </div>
+      <router-link to="/" class="logo-container-link">
+        <div class="logo-container">
+          <img v-if="logoSrc" :src="logoSrc" alt="Logo" class="logo-img" />
+          <span class="site-title">{{ siteTitle }}</span>
+          <span v-if="showBetaTag" class="beta-tag">Beta</span>
+        </div>
+      </router-link>
     </div>
 
     <!-- Desktop Search -->
@@ -444,6 +446,13 @@ onUnmounted(() => {
 #app.dark-mode .search-toggle-button:hover,
 #app.dark-mode .mobile-nav-links-toggle:hover {
   color: #f8f9fa;
+}
+
+.logo-container-link {
+  text-decoration: none; /* Remove underline from link */
+  color: inherit; /* Inherit color from parent */
+  display: flex; /* Ensure it behaves like a block for layout purposes */
+  align-items: center;
 }
 
 .logo-container {
@@ -925,6 +934,14 @@ onUnmounted(() => {
   .right-section { gap: 5px; }
   .site-title { max-width: calc(100vw - 200px); font-size: 1.1em; }
   .logo-img { height: 30px; }
+}
+
+/* Add styles for the new link wrapper */
+.logo-container-link {
+  text-decoration: none; /* Remove underline from link */
+  color: inherit; /* Inherit color from parent */
+  display: flex; /* Ensure it behaves like a block for layout purposes */
+  align-items: center;
 }
 
 </style> 
