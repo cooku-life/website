@@ -1493,7 +1493,7 @@ const lastCommitDate = computed(() => {
   }
 
   .main-content-wrapper {
-    max-width: 100%; /* 在移动设备上允许内容占满宽度 */
+    max-width: 90%; /* 在移动设备上允许内容占满宽度 */
     padding: 0 15px; /* 两侧添加间距 */
   }
 
