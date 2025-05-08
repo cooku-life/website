@@ -246,7 +246,9 @@ body.dark-mode-body {
 }
 
 #app.dark-mode .top-nav-container {
-  background-color: #2a2a2a;
+  background-color: rgba(42, 42, 42, 0.8) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
   border-bottom: 1px solid #3a3a3a;
 }
 
@@ -314,6 +316,10 @@ body.dark-mode-body {
   .top-nav-container {
     position: fixed;
     height: 60px;
+    background-color: rgba(248, 249, 250, 0.8) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    border-bottom: 1px solid rgba(233, 236, 239, 0.5);
   }
 
   .nav-container {

@@ -839,6 +839,16 @@ onUnmounted(() => {
 @media (max-width: 768px) {
   .top-nav-bar {
     padding: 0 10px; /* Reduce padding on mobile */
+    background-color: rgba(248, 249, 250, 0.8); /* Semi-transparent background for mobile */
+    backdrop-filter: blur(10px); /* Frosted glass effect for mobile */
+    -webkit-backdrop-filter: blur(10px); /* Safari support for mobile */
+  }
+
+  /* Explicit rule for dark mode on mobile to ensure glassmorphism */
+  #app.dark-mode .top-nav-bar {
+    background-color: rgba(42, 42, 42, 0.8); /* Semi-transparent dark background for mobile */
+    backdrop-filter: blur(10px); /* Frosted glass effect for dark mode on mobile */
+    -webkit-backdrop-filter: blur(10px); /* Safari support for dark mode on mobile */
   }
 
   .center-section {
